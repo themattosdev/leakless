@@ -15,6 +15,8 @@ final readonly class Config
      * @param  bool  $checkFileDescriptors  Whether to audit lingering file descriptors and TCP sockets.
      * @param  bool  $autoRecycleOnViolation  Whether to flag the worker for graceful exit when thresholds are breached.
      * @param  int|null  $maxRequests  Optional request ceiling before recycling the worker process.
+     * @param  bool  $logViolations  Whether to automatically output warnings to stderr/error_log on detected violations.
+     * @param  (Closure(string, Report): void)|null  $logger  Optional custom logger closure for violation messages.
      * @param  (Closure(Report): void)|null  $onReport  Optional telemetry closure executed after each audited request.
      */
     public function __construct(
@@ -23,6 +25,8 @@ final readonly class Config
         public bool $checkFileDescriptors = false,
         public bool $autoRecycleOnViolation = true,
         public ?int $maxRequests = null,
+        public bool $logViolations = true,
+        public ?Closure $logger = null,
         public ?Closure $onReport = null,
     ) {
         if ($this->maxRssMb <= 0) {

@@ -3,6 +3,7 @@
 composer.lock
 .phpunit.cache/
 .pest/
+.pest.xml
 .phpstan.cache/
 node_modules/
 .DS_Store
