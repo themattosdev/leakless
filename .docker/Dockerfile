@@ -14,6 +14,9 @@ RUN install-php-extensions \
     posix \
     pdo_sqlite
 
+# Configure PHP memory limit for CLI and static analysis
+RUN echo "memory_limit = 512M" > /usr/local/etc/php/conf.d/docker-php-memlimit.ini
+
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
