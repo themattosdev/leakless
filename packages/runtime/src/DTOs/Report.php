@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace TheMattos\Leakless\DTOs;
+
+final readonly class Report
+{
+    public float $memoryDriftMb;
+
+    public float $zendMemoryDriftMb;
+
+    /**
+     * @param  ProcessMetrics  $initialMetrics  Metrics captured at the start of the request.
+     * @param  ProcessMetrics  $finalMetrics  Metrics captured after the response is sent.
+     * @param  float  $durationMs  Execution duration of the request in milliseconds.
+     * @param  bool  $danglingTransactionsDetected  True if orphaned database transactions were detected.
+     * @param  int  $danglingTransactionsCount  Number of dangling transactions rolled back.
+     * @param  array<int, array<string, mixed>>  $danglingTransactionBacktraces  Backtrace details for orphaned transactions.
+     * @param  bool  $shouldRecycle  True if the worker must be gracefully restarted.
+     * @param  string|null  $recycleReason  Human-readable explanation if recycling was requested.
+     * @param  array<string, mixed>  $metadata  Arbitrary context (e.g. route, method, status code).
+     */
+    public function __construct(
+        public ProcessMetrics $initialMetrics,
+        public ProcessMetrics $finalMetrics,
+        public float $durationMs,
+        public bool $danglingTransactionsDetected = false,
+        public int $danglingTransactionsCount = 0,
+        public array $danglingTransactionBacktraces = [],
+        public bool $shouldRecycle = false,
+        public ?string $recycleReason = null,
+        public array $metadata = [],
+    ) {
+        $this->memoryDriftMb = round($this->finalMetrics->rssMb - $this->initialMetrics->rssMb, 2);
+        $this->zendMemoryDriftMb = round($this->finalMetrics->zendMemoryUsageMb - $this->initialMetrics->zendMemoryUsageMb, 2);
+    }
+
+    /**
+     * Determine if the request cycle finished in a completely clean, non-leaking state.
+     */
+    public function isClean(): bool
+    {
+        return ! $this->shouldRecycle && ! $this->danglingTransactionsDetected;
+    }
+}
