@@ -1,3 +1,20 @@
-parameters:
-    # Leakless PHPStan configuration defaults
 services:
+    -
+        class: TheMattos\Leakless\Dev\PHPStan\Rules\BanMutableStaticPropertiesRule
+        tags:
+            - phpstan.rules.rule
+
+    -
+        class: TheMattos\Leakless\Dev\PHPStan\Rules\BanSuperglobalsAndTerminatorsRule
+        tags:
+            - phpstan.rules.rule
+
+    -
+        class: TheMattos\Leakless\Dev\PHPStan\Rules\BanIncompatibleWorkerFunctionsRule
+        tags:
+            - phpstan.rules.rule
+
+    -
+        class: TheMattos\Leakless\Dev\PHPStan\Rules\BanEphemeralInjectionInSingletonsRule
+        tags:
+            - phpstan.rules.rule
