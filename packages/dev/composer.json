@@ -1,0 +1,50 @@
+{
+    "name": "themattosdev/leakless-dev",
+    "description": "Developer tooling, PHPStan AST rules, and Pest assertions for Leakless",
+    "keywords": [
+        "frankenphp",
+        "octane",
+        "phpstan",
+        "pest",
+        "testing",
+        "leakless"
+    ],
+    "homepage": "https://github.com/themattosdev/leakless",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jonathan Gonçalves",
+            "email": "jonathan@themattos.dev",
+            "homepage": "https://themattos.dev",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "themattosdev/leakless": "*@dev",
+        "nikic/php-parser": "^5.0",
+        "nunomaduro/termwind": "^2.0",
+        "phpstan/phpstan": "^2.0",
+        "symfony/console": "^6.4 || ^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "TheMattos\\Leakless\\Dev\\": "src/"
+        }
+    },
+    "bin": [
+        "bin/leakless"
+    ],
+    "extra": {
+        "phpstan": {
+            "includes": [
+                "extension.neon"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

@@ -1,0 +1,10 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - COMPOSER_ALLOW_SUPERUSER=1

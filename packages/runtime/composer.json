@@ -1,0 +1,45 @@
+{
+    "name": "themattosdev/leakless",
+    "description": "Zero state and memory leak prevention for persistent PHP runtimes (FrankenPHP, Laravel Octane)",
+    "keywords": [
+        "frankenphp",
+        "octane",
+        "memory-leak",
+        "state-leak",
+        "runtime",
+        "worker",
+        "leakless"
+    ],
+    "homepage": "https://github.com/themattosdev/leakless",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jonathan Gonçalves",
+            "email": "jonathan@themattos.dev",
+            "homepage": "https://themattos.dev",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "ext-posix": "*",
+        "ext-pcntl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "TheMattos\\Leakless\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "TheMattos\\Leakless\\Integrations\\Laravel\\LeaklessServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

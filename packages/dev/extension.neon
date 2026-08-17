@@ -1,0 +1,3 @@
+parameters:
+    # Leakless PHPStan configuration defaults
+services:

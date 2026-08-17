@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$autoloadFiles = [
+    __DIR__ . '/../../../vendor/autoload.php',
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/vendor/autoload.php',
+];
+
+foreach ($autoloadFiles as $file) {
+    if (file_exists($file)) {
+        require_once $file;
+        break;
+    }
+}
+
+use TheMattos\Leakless\Dev\Console\Application;
+
+$app = new Application();
+$app->run();

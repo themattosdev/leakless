@@ -1,0 +1,11 @@
+parameters:
+    level: 9
+    phpVersion: 80200
+    paths:
+        - packages/runtime/src
+        - packages/dev/src
+        - tests
+    excludePaths:
+        - tests/Fixtures/*
+    ignoreErrors:
+        - '#Call to an undefined method Pest\\PendingCalls\\TestCall::expect\(\)#'

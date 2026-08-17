@@ -1,0 +1,61 @@
+{
+    "name": "themattosdev/leakless-monorepo",
+    "description": "Monorepo for Leakless - Zero state and memory leak prevention for PHP persistent runtimes",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jonathan Gonçalves",
+            "email": "jonathan@themattos.dev",
+            "homepage": "https://themattos.dev",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "themattosdev/leakless": "*@dev"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^9.0 || ^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-arch": "^3.0",
+        "phpstan/phpstan": "^2.0",
+        "themattosdev/leakless-dev": "*@dev"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/runtime",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "packages/dev",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "lint": "vendor/bin/pint --test",
+        "lint:fix": "vendor/bin/pint",
+        "analyse": "vendor/bin/phpstan analyse"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
