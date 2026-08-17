@@ -30,7 +30,10 @@
     "autoload": {
         "psr-4": {
             "TheMattos\\Leakless\\Dev\\": "src/"
-        }
+        },
+        "files": [
+            "src/Pest/Autoload.php"
+        ]
     },
     "bin": [
         "bin/leakless"
