@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 use Pest\Expectation;
 use PHPUnit\Framework\Assert;
-use TheMattos\Leakless\Dev\Support\ClassLeakInspector;
-use TheMattos\Leakless\Leakless;
+use TheMattos\Leakless\Dev\PHPUnit\AssertsLeakless;
 
 if (function_exists('expect')) {
     /**
@@ -19,17 +18,7 @@ if (function_exists('expect')) {
         }
 
         /** @var class-string|object $target */
-        $inspector = new ClassLeakInspector;
-        $violations = $inspector->inspect($target);
-
-        Assert::assertEmpty(
-            $violations,
-            sprintf(
-                "Failed asserting that [%s] is leakless:\n- %s",
-                is_object($target) ? $target::class : $target,
-                implode("\n- ", $violations),
-            ),
-        );
+        AssertsLeakless::assertIsLeakless($target);
 
         return $this;
     });
@@ -44,35 +33,7 @@ if (function_exists('expect')) {
             Assert::fail('Expected value must be a callable closure.');
         }
 
-        $guardian = new Leakless;
-        $guardian->startRequest();
-
-        try {
-            $callable();
-        } finally {
-            $report = $guardian->endRequest();
-        }
-
-        Assert::assertTrue(
-            $report->isClean(),
-            sprintf(
-                'Failed asserting that closure ran cleanly. Dangling transactions: %d, Should recycle: %s',
-                $report->danglingTransactionsCount,
-                $report->shouldRecycle ? 'true' : 'false',
-            ),
-        );
-
-        if ($maxDriftMb !== null) {
-            Assert::assertLessThanOrEqual(
-                $maxDriftMb,
-                $report->memoryDriftMb,
-                sprintf(
-                    'Memory drift [%.2fMB] exceeded the maximum allowed drift of [%.2fMB].',
-                    $report->memoryDriftMb,
-                    $maxDriftMb,
-                ),
-            );
-        }
+        AssertsLeakless::assertRunsCleanly($callable, maxDriftMb: $maxDriftMb);
 
         return $this;
     });

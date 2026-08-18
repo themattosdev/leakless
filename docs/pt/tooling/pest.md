@@ -1,56 +1,81 @@
-# Expectativas Customizadas do Pest
+# Testes: Asserções para Pest & PHPUnit
 
-O pacote `themattosdev/leakless-dev` registra automaticamente expectativas customizadas no **Pest** para validar a segurança de workers persistentes na sua suíte de testes automatizados.
+O pacote `themattosdev/leakless-dev` fornece utilitários de teste de primeira classe tanto para o **Pest PHP** quanto para o **PHPUnit**, permitindo garantir a segurança e higiene de workers em sua suíte automatizada.
 
 ---
 
-## 1. `expect($target)->toBeLeakless()`
+## 1. Expectations no Pest
 
-Executa uma auditoria estrutural profunda via reflexão em uma classe (`string`) ou objeto instanciado (`object`):
+Ao utilizar o Pest, o Leakless registra expectations customizadas automaticamente:
 
-- Valida se a classe e todas as suas classes pai contêm **zero propriedades estáticas mutáveis** (exceto as anotadas com `#[AllowPersistentState]`).
-- Inspeciona os parâmetros do construtor para garantir que dependências efêmeras (`Illuminate\Http\Request`, `Illuminate\Session\SessionManager`) não fiquem presas em singletons.
+### `expect($target)->toBeLeakless()`
+Executa uma auditoria estrutural via Reflection em uma classe (`string`) ou objeto (`object`):
+- Garante que a classe e suas classes pai contenham **zero propriedades estáticas mutáveis** (a menos que anotadas com `#[AllowPersistentState]`).
+- Inspeciona os parâmetros do construtor para proibir a captura de dependências efêmeras de requisição (`Illuminate\Http\Request`, `Session`) em serviços singleton/longa vida.
 
 ```php
 use App\Services\PaymentService;
 use App\Repositories\OrderRepository;
 
-test('serviços do domínio são seguros para workers persistentes', function () {
+test('serviços de domínio são seguros para workers', function () {
     expect(PaymentService::class)->toBeLeakless();
     expect(OrderRepository::class)->toBeLeakless();
 });
 ```
 
----
-
-## 2. `expect($closure)->toRunCleanly(?float $maxDriftMb = null)`
-
-Executa dinamicamente uma closure dentro de um ciclo protegido pelo Leakless:
-
-- Audita transações de banco de dados PDO abertas antes e depois da execução da closure.
-- Valida o esvaziamento de buffers de saída e a imutabilidade do fuso horário.
-- Mede o RSS de memória física real do Linux antes e depois da execução.
-- Se `$maxDriftMb` for informado, valida que a variação de memória RAM permaneceu abaixo do limite estabelecido.
+### `expect($closure)->toRunCleanly(?float $maxDriftMb = null)`
+Executa dinamicamente uma Closure dentro de um ciclo vigiado pelo Leakless:
+- Audita transações PDO não commitadas e descritores de arquivos abertos.
+- Valida a restauração de fuso horário e buffers de saída.
+- Mede a variação de memória RAM física do kernel Linux ($\Delta\text{RSS}$).
 
 ```php
-use App\Jobs\ProcessPendingInvoices;
-
-test('processamento de faturas em lote executa sem vazamentos de memória', function () {
+test('processamento em lote executa de forma limpa', function () {
     expect(function () {
-        $job = new ProcessPendingInvoices();
-        $job->handle();
-    })->toRunCleanly(maxDriftMb: 5.0); // Valida que o crescimento de RAM é <= 5MB
+        $service = new ReportGenerator();
+        $service->generate();
+    })->toRunCleanly(maxDriftMb: 5.0); // Garante que a RAM não cresceu mais que 5MB
 });
 ```
 
 ---
 
-## Integração com PHPStan Strict Mode
+## 2. Asserções Nativas no PHPUnit (`AssertsLeakless`)
 
-Se você utiliza o PHPStan em nível estrito (Level 9) na sua suíte de testes, adicione esta regra no seu `phpstan.neon`:
+Se o seu projeto utiliza classes `TestCase` padrão do PHPUnit em vez do Pest, utilize o trait `AssertsLeakless`:
 
-```yaml
-parameters:
-    ignoreErrors:
-        - '#Call to an undefined method Pest\\Expectation.*::(toBeLeakless|toRunCleanly)\(\)#'
+```php
+namespace Tests\Unit;
+
+use PHPUnit\Framework\TestCase;
+use TheMattos\Leakless\Dev\PHPUnit\AssertsLeakless;
+use App\Services\PaymentService;
+
+final class PaymentServiceTest extends TestCase
+{
+    use AssertsLeakless;
+
+    public function test_service_is_worker_safe(): void
+    {
+        $this->assertIsLeakless(PaymentService::class);
+    }
+
+    public function test_request_cycle_runs_cleanly(): void
+    {
+        $this->assertRunsCleanly(function () {
+            $service = new PaymentService();
+            $service->process();
+        }, maxDriftMb: 2.0);
+    }
+}
 ```
+
+### Métodos Disponíveis no PHPUnit
+
+| Método | Descrição |
+| :--- | :--- |
+| `$this->assertIsLeakless($target)` | Assere que uma classe/objeto não retém estado estático mutável ou injeções efêmeras. |
+| `$this->assertRunsCleanly($callable, $config, $maxDriftMb)` | Executa um callback sob o Leakless e assere estado 100% limpo. |
+| `$this->assertNoDanglingTransactions($reportOrResponse)` | Assere que nenhuma transação PDO permaneceu aberta. |
+| `$this->assertCleanWorkerState($reportOrResponse)` | Assere que o estado do worker terminou íntegro após a requisição. |
+| `$this->assertNoMemoryDrift($reportOrResponse, $maxMb)` | Assere que a variação de memória física não excedeu o teto. |

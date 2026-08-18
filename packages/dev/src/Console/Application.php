@@ -10,7 +10,7 @@ use TheMattos\Leakless\Dev\Console\Commands\AnalyzeCommand;
 
 final class Application extends BaseApplication
 {
-    public const VERSION = '0.3.0';
+    public const VERSION = '0.5.0';
 
     public function __construct()
     {
