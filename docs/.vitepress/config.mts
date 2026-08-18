@@ -25,7 +25,6 @@ export default defineConfig({
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
           { text: 'Architecture', link: '/guide/kernel-memory' },
-          { text: 'Anti-Patterns', link: '/anti-patterns/' },
           { text: 'Dev Tooling', link: '/tooling/cli-and-testing' },
           { text: 'API Reference', link: '/api/config' },
           {
@@ -58,18 +57,9 @@ export default defineConfig({
             ],
           },
           {
-            text: 'Worker Anti-Patterns',
+            text: 'Developer Tooling & Testing',
             items: [
-              { text: 'Catalogue Overview', link: '/anti-patterns/' },
-              { text: 'Mutable Static Properties', link: '/anti-patterns/mutable-statics' },
-              { text: 'Singleton Injections', link: '/anti-patterns/singleton-injections' },
-              { text: 'Native Sessions & Headers', link: '/anti-patterns/native-sessions' },
-              { text: 'Alpine musl & GLOB_BRACE', link: '/anti-patterns/glob-brace' },
-            ],
-          },
-          {
-            text: 'Developer Tooling',
-            items: [
+              { text: 'Overview', link: '/tooling/cli-and-testing' },
               { text: 'Static Linter CLI', link: '/tooling/cli' },
               { text: 'Pest Custom Expectations', link: '/tooling/pest' },
               { text: 'Laravel HTTP Test Macros', link: '/tooling/laravel-macros' },
@@ -80,7 +70,7 @@ export default defineConfig({
             text: 'Reference',
             items: [
               { text: 'Configuration Options', link: '/api/config' },
-              { text: 'Attributes & DTOs', link: '/api/dtos' },
+              { text: 'Attributes & Reports', link: '/api/dtos' },
             ],
           },
         ],
@@ -94,7 +84,6 @@ export default defineConfig({
         nav: [
           { text: 'Guia', link: '/pt/guide/getting-started' },
           { text: 'Arquitetura', link: '/pt/guide/kernel-memory' },
-          { text: 'Anti-Patterns', link: '/pt/anti-patterns/' },
           { text: 'Ferramentas Dev', link: '/pt/tooling/cli-and-testing' },
           { text: 'Referência API', link: '/pt/api/config' },
           {
@@ -127,18 +116,9 @@ export default defineConfig({
             ],
           },
           {
-            text: 'Catálogo de Anti-Patterns',
+            text: 'Ferramentas de Desenvolvimento & Testes',
             items: [
-              { text: 'Visão Geral do Catálogo', link: '/pt/anti-patterns/' },
-              { text: 'Propriedades Estáticas Mutáveis', link: '/pt/anti-patterns/mutable-statics' },
-              { text: 'Injeções em Singletons', link: '/pt/anti-patterns/singleton-injections' },
-              { text: 'Sessões Nativas & Headers', link: '/pt/anti-patterns/native-sessions' },
-              { text: 'Alpine musl & GLOB_BRACE', link: '/pt/anti-patterns/glob-brace' },
-            ],
-          },
-          {
-            text: 'Ferramentas de Desenvolvimento',
-            items: [
+              { text: 'Visão Geral', link: '/pt/tooling/cli-and-testing' },
               { text: 'CLI de Análise Estática', link: '/pt/tooling/cli' },
               { text: 'Expectativas Customizadas do Pest', link: '/pt/tooling/pest' },
               { text: 'Macros de Teste do Laravel', link: '/pt/tooling/laravel-macros' },
@@ -149,7 +129,7 @@ export default defineConfig({
             text: 'Referência',
             items: [
               { text: 'Opções de Configuração', link: '/pt/api/config' },
-              { text: 'Atributos & DTOs', link: '/pt/api/dtos' },
+              { text: 'Atributos & Relatórios', link: '/pt/api/dtos' },
             ],
           },
         ],
