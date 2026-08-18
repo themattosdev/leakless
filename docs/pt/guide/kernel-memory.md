@@ -1,17 +1,17 @@
-# Rastreamento de Memória Real do Kernel (RSS)
+# Memória Real do Kernel (RSS) & File Descriptors
 
 Funções nativas do PHP como `memory_get_usage()` e `memory_get_peak_usage()` medem apenas a memória alocada dentro do **heap da Zend Engine** (o gerenciador interno para objetos, arrays e variáveis do PHP).
 
-Elas são **completamente cegas** para memórias alocadas por:
+Elas são **completamente cegas** para:
 - Extensões em C (`curl`, `imagick`, `gd`, `openssl`, `ext-sodium`)
-- Alocações nativas de bibliotecas via `malloc()` / `jemalloc` / `mimalloc`
-- Memória compartilhada entre o servidor Go/C do FrankenPHP e o PHP
+- Alocações nativas via `malloc()` / `jemalloc` / `mimalloc`
+- File Descriptors e sockets esquecidos abertos (`/proc/self/fd`)
 
 ---
 
-## A Interface `/proc/self/statm` no Linux
+## 1. A Interface `/proc/self/statm` no Linux
 
-No Linux, o kernel disponibiliza um arquivo virtual em pseudo-sistema de arquivos para cada processo: `/proc/self/statm`.
+No Linux, o kernel disponibiliza um arquivo virtual para cada processo: `/proc/self/statm`.
 
 Ler esse arquivo não realiza I/O de disco físico; o kernel expõe a tabela de páginas de memória do processo em nanossegundos:
 
@@ -28,15 +28,24 @@ Onde cada coluna representa:
 6. **Dados + Stack (Data)**: Segmento de dados e pilha do processo.
 7. **Páginas Modificadas (Dirty)**: Páginas físicas alteradas na RAM.
 
----
-
-## Como o Leakless Calcula o RSS Real
-
-1. **Resolução Dinâmica de Página**: O Leakless consulta o tamanho exato da página do kernel Linux via `posix_sysconf(POSIX_PC_SC_PAGESIZE)` (normalmente `4096` bytes em x86_64 ou `65536` bytes em certas arquiteturas ARM).
-2. **Parsing de Alta Performance**: Durante o `$leakless->startRequest()` e `$leakless->endRequest()`, o `ProcStatmParser` realiza a leitura de `/proc/self/statm` com zero alocação de memória intermediária.
+### Como o Leakless Calcula o RSS Real
+1. **Resolução de Página**: Consulta o tamanho da página Linux via `posix_sysconf(POSIX_PC_SC_PAGESIZE)` (normalmente `4096` bytes).
+2. **Parsing de Alta Performance**: `ProcStatmParser` lê `/proc/self/statm` nos limites da requisição.
 3. **Conversão para Megabytes**: Converte a contagem de páginas diretamente para megabytes:
    $$\text{RSS (MB)} = \frac{\text{resident\_pages} \times \text{page\_size\_bytes}}{1024 \times 1024}$$
-4. **Cálculo de Deriva de Memória (Memory Drift)**: Calcula a variação exata de RAM física ($\Delta \text{RSS}$) durante o ciclo da requisição:
-   $$\Delta \text{RSS} = \text{RSS}_{\text{depois}} - \text{RSS}_{\text{antes}}$$
 
-Caso o sistema de arquivos `/proc` não esteja acessível (como em desenvolvimento local no macOS ou Windows sem Docker), o Leakless adota automaticamente o fallback para `memory_get_usage(true)`.
+---
+
+## 2. Guardião de File Descriptors (`/proc/self/fd`)
+
+Em workers persistentes, arquivos não fechados (`fopen()`), streams temporárias ou sockets de rede (`fsockopen()`, handles cURL) acumulam na tabela de processos do Linux.
+
+Com o tempo, isso atinge o limite do sistema (`ulimit -n`), provocando o erro fatal:
+`Too many open files`
+
+### Como o FileDescriptorGuard Opera
+Quando `checkFileDescriptors: true` (ou `LEAKLESS_CHECK_FILE_DESCRIPTORS=true`):
+1. **Snapshot Inicial**: Lê os symlinks de `/proc/self/fd` no `startRequest()`.
+2. **Auditoria de Pós-Requisição**: Reinspeciona `/proc/self/fd` no `endRequest()`.
+3. **Identificação de Vazamentos**: Detecta descritores abertos durante a requisição que não foram fechados.
+4. **Logs Diagnósticos**: Emite alertas detalhados com os caminhos dos arquivos e marca `$report->fileDescriptorsLeaked = true`.

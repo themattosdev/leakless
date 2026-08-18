@@ -41,6 +41,9 @@ if ($report->shouldRecycle) {
 | :--- | :---: | :--- |
 | `$report->isClean` | `bool` | `true` if no transactions leaked and no worker recycling was triggered. |
 | `$report->hasTransactionLeak` | `bool` | `true` if one or more open PDO transactions were rolled back. |
+| `$report->fileDescriptorsLeaked` | `bool` | `true` if lingering file handles or open sockets were detected. |
+| `$report->fileDescriptorsLeakedCount` | `int` | Count of unclosed file descriptors left behind. |
+| `$report->fileDescriptorsLeakedMap` | `array<int, string>` | Map of leaked descriptors `[fd => targetPath]`. |
 | `$report->shouldRecycle` | `bool` | `true` if memory or request count limits were breached. |
 | `$report->memoryDriftMb` | `float` | Physical RSS delta ($\Delta\text{RSS}$) in megabytes during the request. |
 | `$report->metricsBefore` | `ProcessMetrics` | Snapshot of process memory before request handling. |

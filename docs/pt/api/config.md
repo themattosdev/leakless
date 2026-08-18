@@ -55,5 +55,6 @@ php artisan vendor:publish --tag="leakless-config"
 | `max_rss_mb` | `LEAKLESS_MAX_RSS_MB` | `256.0` | Teto de memória RSS real do Linux em MB. Ao ser ultrapassado, dispara a reciclagem do worker. |
 | `max_requests` | `LEAKLESS_MAX_REQUESTS` | `null` | Limite de requisições por worker antes de reciclar (`null` = ilimitado). |
 | `check_transactions` | `LEAKLESS_CHECK_TRANSACTIONS` | `true` | Audita e executa rollback automático em transações PDO abertas ao final da requisição. |
+| `check_file_descriptors` | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `false` | Inspeciona `/proc/self/fd` para detectar arquivos ou sockets de rede esquecidos abertos. |
 | `rollback_state` | `LEAKLESS_ROLLBACK_STATE` | `true` | Restaura fuso horário original, buffers de saída residuais e níveis de erro. |
 | `log_violations` | `LEAKLESS_LOG_VIOLATIONS` | `true` | Emite logs diagnósticos quando transações órfãs ou anomalias de estado forem capturadas. |

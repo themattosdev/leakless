@@ -1,15 +1,15 @@
-# Real Kernel RSS Memory Tracking
+# Real Kernel RSS & File Descriptor Tracking
 
 Standard PHP functions like `memory_get_usage()` and `memory_get_peak_usage()` only measure memory allocated inside the **Zend Engine heap** (the internal memory manager for PHP objects, arrays, and variables).
 
-They are **completely blind** to memory allocated by:
+They are **completely blind** to:
 - C-extensions (`curl`, `imagick`, `gd`, `openssl`, `ext-sodium`)
 - Native glibc `malloc()` / `jemalloc` / `mimalloc` allocations
-- Embedded C/Go worker memory inside FrankenPHP
+- Unclosed File Descriptors (`/proc/self/fd`) and lingering sockets
 
 ---
 
-## The Linux `/proc/self/statm` Interface
+## 1. The Linux `/proc/self/statm` Interface
 
 On Linux, the kernel maintains an ultra-fast pseudo-filesystem file for every process: `/proc/self/statm`.
 
@@ -28,15 +28,24 @@ Where the values represent:
 6. **Data + Stack (Data)**: Process data segment and user stack.
 7. **Dirty Pages (Dirty)**: Modified physical memory pages.
 
+### How Leakless Computes RSS
+1. **Kernel Page Resolution**: Dynamically resolves the Linux page size via POSIX `posix_sysconf(POSIX_PC_SC_PAGESIZE)` (typically `4096` bytes).
+2. **Zero-Allocation Parsing**: `ProcStatmParser` reads `/proc/self/statm` at request boundaries.
+3. **Megabyte Conversion**: Converts page counts directly to megabytes:
+   $$\text{RSS (MB)} = \frac{\text{resident\_pages} \times \text{page\_size\_bytes}}{1024 \times 1024}$$
+
 ---
 
-## How Leakless Reads and Computes RSS
+## 2. File Descriptor Guard (`/proc/self/fd`)
 
-1. **Kernel Page Resolution**: Leakless dynamically resolves the Linux kernel page size using POSIX `posix_sysconf(POSIX_PC_SC_PAGESIZE)` (typically `4096` bytes on x86_64, or `65536` bytes on certain ARM architectures).
-2. **Low-Overhead Parsing**: During `startRequest()` and `endRequest()`, Leakless reads `/proc/self/statm` with zero-allocation string parsing (`ProcStatmParser`).
-3. **Conversion**: Converts page counts directly to megabytes:
-   $$\text{RSS (MB)} = \frac{\text{resident\_pages} \times \text{page\_size\_bytes}}{1024 \times 1024}$$
-4. **Memory Drift Calculation**: Computes the exact physical memory delta ($\Delta \text{RSS}$) consumed during the active request cycle:
-   $$\Delta \text{RSS} = \text{RSS}_{\text{after}} - \text{RSS}_{\text{before}}$$
+In persistent PHP workers, unclosed file handles (`fopen()`), temporary streams, or open network sockets (`fsockopen()`, cURL handles) accumulate in the process table.
 
-If the Linux `/proc` filesystem is unavailable (such as during local development on macOS/Windows without Docker), Leakless automatically falls back to `memory_get_usage(true)` to ensure 100% portability.
+Over time, this breaches the operating system limit (`ulimit -n`), causing fatal errors:
+`Too many open files`
+
+### How FileDescriptorGuard Operates
+When `checkFileDescriptors: true` (or `LEAKLESS_CHECK_FILE_DESCRIPTORS=true`):
+1. **Initial Snapshot**: Reads `/proc/self/fd` symlinks at `startRequest()`.
+2. **Post-Request Audit**: Re-inspects `/proc/self/fd` at `endRequest()`.
+3. **Leak Identification**: Detects descriptors opened during request processing that were left unclosed.
+4. **Diagnostic Logging**: Emits detailed warnings with file paths and sets `$report->fileDescriptorsLeaked = true`.

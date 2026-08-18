@@ -41,6 +41,9 @@ if ($report->shouldRecycle) {
 | :--- | :---: | :--- |
 | `$report->isClean` | `bool` | `true` se nenhuma transação vazou e nenhum limite de reciclagem foi atingido. |
 | `$report->hasTransactionLeak` | `bool` | `true` se uma ou mais transações PDO abertas foram revertidas automaticamente. |
+| `$report->fileDescriptorsLeaked` | `bool` | `true` se arquivos ou sockets de rede foram esquecidos abertos. |
+| `$report->fileDescriptorsLeakedCount` | `int` | Quantidade de file descriptors não fechados. |
+| `$report->fileDescriptorsLeakedMap` | `array<int, string>` | Mapa de descritores vazados `[fd => caminho]`. |
 | `$report->shouldRecycle` | `bool` | `true` se o teto de memória ou limite de requisições foi ultrapassado. |
 | `$report->memoryDriftMb` | `float` | Variação de memória física ($\Delta\text{RSS}$) em megabytes durante a requisição. |
 | `$report->metricsBefore` | `ProcessMetrics` | Snapshot de memória antes do início da requisição. |

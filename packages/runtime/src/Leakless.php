@@ -9,6 +9,7 @@ use PDO;
 use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\DTOs\ProcessMetrics;
 use TheMattos\Leakless\DTOs\Report;
+use TheMattos\Leakless\Guards\FileDescriptorGuard;
 use TheMattos\Leakless\Guards\TransactionGuard;
 use TheMattos\Leakless\Support\ProcStatmParser;
 use TheMattos\Leakless\Support\StateRollback;
@@ -21,9 +22,16 @@ final class Leakless
 
     private readonly TransactionGuard $transactionGuard;
 
+    private readonly FileDescriptorGuard $fileDescriptorGuard;
+
     private readonly StateRollback $stateRollback;
 
     private ?ProcessMetrics $initialMetrics = null;
+
+    /**
+     * @var array<int, string>
+     */
+    private array $initialDescriptors = [];
 
     private ?float $requestStartTime = null;
 
@@ -40,6 +48,7 @@ final class Leakless
      * @param  Config|null  $config  Configuration parameters and operational thresholds.
      * @param  ProcStatmParser|null  $statmParser  Parser for /proc/self/statm metrics.
      * @param  TransactionGuard|null  $transactionGuard  Guard for uncommitted PDO transactions.
+     * @param  FileDescriptorGuard|null  $fileDescriptorGuard  Guard for lingering file descriptors.
      * @param  StateRollback|null  $stateRollback  State rollback manager for global PHP environment.
      * @param  (Closure(Report): void)|null  $recycler  Custom recycle handler (useful for testing without exiting PHP).
      */
@@ -47,12 +56,14 @@ final class Leakless
         ?Config $config = null,
         ?ProcStatmParser $statmParser = null,
         ?TransactionGuard $transactionGuard = null,
+        ?FileDescriptorGuard $fileDescriptorGuard = null,
         ?StateRollback $stateRollback = null,
         ?Closure $recycler = null,
     ) {
         $this->config = $config ?? new Config;
         $this->statmParser = $statmParser ?? new ProcStatmParser;
         $this->transactionGuard = $transactionGuard ?? new TransactionGuard;
+        $this->fileDescriptorGuard = $fileDescriptorGuard ?? new FileDescriptorGuard;
         $this->stateRollback = $stateRollback ?? new StateRollback;
         $this->recycler = $recycler;
     }
@@ -66,6 +77,10 @@ final class Leakless
         $this->requestStartTime = microtime(true);
         $this->initialMetrics = $this->statmParser->parse();
         $this->stateRollback->captureInitialState();
+
+        if ($this->config->checkFileDescriptors) {
+            $this->initialDescriptors = $this->fileDescriptorGuard->captureOpenDescriptors();
+        }
     }
 
     /**
@@ -85,14 +100,19 @@ final class Leakless
             ? $this->transactionGuard->auditAndRollback($additionalConnections)
             : ['detected' => false, 'rolledBackCount' => 0, 'errors' => []];
 
-        // 2. Perform state rollback for global environment
+        // 2. Audit lingering file descriptors
+        $fdAudit = $this->config->checkFileDescriptors
+            ? $this->fileDescriptorGuard->audit($this->initialDescriptors)
+            : ['detected' => false, 'leakedCount' => 0, 'leakedDescriptors' => []];
+
+        // 3. Perform state rollback for global environment
         $this->stateRollback->rollback();
 
-        // 3. Capture post-request process metrics
+        // 4. Capture post-request process metrics
         $finalMetrics = $this->statmParser->parse();
         $initialMetrics = $this->initialMetrics ?? $finalMetrics;
 
-        // 4. Evaluate whether worker should be gracefully recycled
+        // 5. Evaluate whether worker should be gracefully recycled
         $shouldRecycle = false;
         $recycleReason = null;
 
@@ -104,13 +124,16 @@ final class Leakless
             $recycleReason = "Max requests ceiling reached: {$this->requestCount}/{$this->config->maxRequests}";
         }
 
-        // 5. Build Report DTO
+        // 6. Build Report DTO
         $report = new Report(
             initialMetrics: $initialMetrics,
             finalMetrics: $finalMetrics,
             durationMs: $durationMs,
             danglingTransactionsDetected: $txAudit['detected'],
             danglingTransactionsCount: $txAudit['rolledBackCount'],
+            fileDescriptorsLeaked: $fdAudit['detected'],
+            fileDescriptorsLeakedCount: $fdAudit['leakedCount'],
+            fileDescriptorsLeakedMap: $fdAudit['leakedDescriptors'],
             shouldRecycle: $shouldRecycle,
             recycleReason: $recycleReason,
             metadata: $metadata,
@@ -118,17 +141,17 @@ final class Leakless
 
         $this->lastReport = $report;
 
-        // 6. Log anomalies / violations automatically (Zero-Config Logging)
+        // 7. Log anomalies / violations automatically (Zero-Config Logging)
         if ($this->config->logViolations && ! $report->isClean()) {
             $this->logViolation($report);
         }
 
-        // 7. Trigger telemetry callback if configured
+        // 8. Trigger telemetry callback if configured
         if ($this->config->onReport !== null) {
             ($this->config->onReport)($report);
         }
 
-        // 8. Trigger graceful recycling if required
+        // 9. Trigger graceful recycling if required
         if ($shouldRecycle && $this->config->autoRecycleOnViolation) {
             $this->triggerRecycle($report);
         }
@@ -166,6 +189,11 @@ final class Leakless
         return $this->transactionGuard;
     }
 
+    public function getFileDescriptorGuard(): FileDescriptorGuard
+    {
+        return $this->fileDescriptorGuard;
+    }
+
     public function getStateRollback(): StateRollback
     {
         return $this->stateRollback;
@@ -182,6 +210,11 @@ final class Leakless
 
         if ($report->danglingTransactionsDetected) {
             $messages[] = "[Leakless] 🚨 Dangling database transaction(s) detected and rolled back ({$report->danglingTransactionsCount} transaction(s)).";
+        }
+
+        if ($report->fileDescriptorsLeaked) {
+            $details = implode(', ', array_map(fn ($fd, $target) => "#{$fd} ({$target})", array_keys($report->fileDescriptorsLeakedMap), $report->fileDescriptorsLeakedMap));
+            $messages[] = "[Leakless] 🚨 Lingering file descriptor(s) detected ({$report->fileDescriptorsLeakedCount} descriptor(s)): {$details}";
         }
 
         if ($report->shouldRecycle && $report->recycleReason !== null) {

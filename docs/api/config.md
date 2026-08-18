@@ -55,5 +55,6 @@ php artisan vendor:publish --tag="leakless-config"
 | `max_rss_mb` | `LEAKLESS_MAX_RSS_MB` | `256.0` | Real Linux kernel RSS threshold in MB. If breached, worker recycling is triggered. |
 | `max_requests` | `LEAKLESS_MAX_REQUESTS` | `null` | Maximum request count per worker before triggering graceful recycling (`null` = unlimited). |
 | `check_transactions` | `LEAKLESS_CHECK_TRANSACTIONS` | `true` | Automatically audits and rolls back open PDO transactions at request completion. |
+| `check_file_descriptors` | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `false` | Inspects `/proc/self/fd` for unclosed file handles and lingering network sockets. |
 | `rollback_state` | `LEAKLESS_ROLLBACK_STATE` | `true` | Restores default timezone, unclosed output buffers, and error reporting levels. |
 | `log_violations` | `LEAKLESS_LOG_VIOLATIONS` | `true` | Emits diagnostic logs when uncommitted transactions or state leaks are caught. |

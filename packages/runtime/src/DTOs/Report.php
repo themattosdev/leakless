@@ -17,6 +17,9 @@ final readonly class Report
      * @param  bool  $danglingTransactionsDetected  True if orphaned database transactions were detected.
      * @param  int  $danglingTransactionsCount  Number of dangling transactions rolled back.
      * @param  array<int, array<string, mixed>>  $danglingTransactionBacktraces  Backtrace details for orphaned transactions.
+     * @param  bool  $fileDescriptorsLeaked  True if lingering file descriptors or open sockets were detected.
+     * @param  int  $fileDescriptorsLeakedCount  Number of leaked file descriptors.
+     * @param  array<int, string>  $fileDescriptorsLeakedMap  Map of leaked descriptors [fd => targetPath].
      * @param  bool  $shouldRecycle  True if the worker must be gracefully restarted.
      * @param  string|null  $recycleReason  Human-readable explanation if recycling was requested.
      * @param  array<string, mixed>  $metadata  Arbitrary context (e.g. route, method, status code).
@@ -28,6 +31,9 @@ final readonly class Report
         public bool $danglingTransactionsDetected = false,
         public int $danglingTransactionsCount = 0,
         public array $danglingTransactionBacktraces = [],
+        public bool $fileDescriptorsLeaked = false,
+        public int $fileDescriptorsLeakedCount = 0,
+        public array $fileDescriptorsLeakedMap = [],
         public bool $shouldRecycle = false,
         public ?string $recycleReason = null,
         public array $metadata = [],
@@ -41,6 +47,8 @@ final readonly class Report
      */
     public function isClean(): bool
     {
-        return ! $this->shouldRecycle && ! $this->danglingTransactionsDetected;
+        return ! $this->shouldRecycle
+            && ! $this->danglingTransactionsDetected
+            && ! $this->fileDescriptorsLeaked;
     }
 }
