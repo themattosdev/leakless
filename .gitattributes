@@ -1,0 +1,14 @@
+# Git Attributes for export-ignore (excludes dev/monorepo/docs files from composer dist archives)
+/packages/dev export-ignore
+/docs export-ignore
+/tests export-ignore
+/.github export-ignore
+/art export-ignore
+.editorconfig export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore
+docker-compose.yml export-ignore
+Dockerfile export-ignore
+phpstan.neon export-ignore
+pint.json export-ignore
+phpunit.xml export-ignore

@@ -1,6 +1,6 @@
 {
-    "name": "themattosdev/leakless-monorepo",
-    "description": "Monorepo for Leakless - Zero state and memory leak prevention for PHP persistent runtimes",
+    "name": "themattosdev/leakless",
+    "description": "Zero state and memory leak prevention for PHP persistent runtimes (FrankenPHP & Laravel Octane)",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -13,7 +13,8 @@
     ],
     "require": {
         "php": "^8.2",
-        "themattosdev/leakless": "*@dev"
+        "ext-pcntl": "*",
+        "ext-posix": "*"
     },
     "require-dev": {
         "laravel/pint": "^1.18",
@@ -26,19 +27,17 @@
     "repositories": [
         {
             "type": "path",
-            "url": "packages/runtime",
-            "options": {
-                "symlink": true
-            }
-        },
-        {
-            "type": "path",
             "url": "packages/dev",
             "options": {
                 "symlink": true
             }
         }
     ],
+    "autoload": {
+        "psr-4": {
+            "TheMattos\\Leakless\\": "packages/runtime/src/"
+        }
+    },
     "autoload-dev": {
         "psr-4": {
             "Tests\\Architecture\\": "tests/Architecture/",
@@ -47,9 +46,13 @@
             "Tests\\Unit\\": "tests/Unit/"
         }
     },
-    "bin": [
-        "packages/dev/bin/leakless"
-    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "TheMattos\\Leakless\\Integrations\\Laravel\\LeaklessServiceProvider"
+            ]
+        }
+    },
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true

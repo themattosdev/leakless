@@ -1,0 +1,37 @@
+name: 'Monorepo Split'
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - local_path: 'packages/dev'
+            split_repository: 'leakless-dev'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Monorepo Split of ${{ matrix.package.local_path }}
+        uses: danharrin/monorepo-split-github-action@v2.4.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        with:
+          package_directory: ${{ matrix.package.local_path }}
+          repository_organization: 'themattosdev'
+          repository_name: ${{ matrix.package.split_repository }}
+          user_name: 'Jonathan Gonçalves'
+          user_email: 'jonathan@themattos.dev'
+          branch: 'master'
