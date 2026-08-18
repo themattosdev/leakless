@@ -21,7 +21,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "themattosdev/leakless": "^0.3 || *@dev",
+        "themattosdev/leakless": "^0.5 || *@dev",
         "nikic/php-parser": "^5.0",
         "nunomaduro/termwind": "^2.0",
         "phpstan/phpstan": "^2.0",

@@ -35,3 +35,4 @@ jobs:
           user_name: 'Jonathan Gonçalves'
           user_email: 'jonathan@themattos.dev'
           branch: 'master'
+          tag: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
