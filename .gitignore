@@ -6,6 +6,8 @@ composer.lock
 .pest.xml
 .phpstan.cache/
 node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 .DS_Store
 .idea/
 .vscode/
