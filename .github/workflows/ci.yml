@@ -1,0 +1,48 @@
+name: 'Continuous Integration'
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: 'PHP ${{ matrix.php }}'
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, pdo, sqlite3, pdo_sqlite, posix
+          coverage: none
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Code Style Check (Pint)
+        if: matrix.php == '8.3'
+        run: vendor/bin/pint --test
+
+      - name: Static Analysis (PHPStan Level 9)
+        run: vendor/bin/phpstan analyse --memory-limit=512M
+
+      - name: Test Suite (Pest)
+        run: vendor/bin/pest
