@@ -3,20 +3,32 @@
 
 declare(strict_types=1);
 
-$autoloadFiles = [
+$autoloadCandidates = [
+    __DIR__ . '/../../autoload.php',
     __DIR__ . '/../../../vendor/autoload.php',
+    __DIR__ . '/../../vendor/autoload.php',
     __DIR__ . '/../vendor/autoload.php',
     __DIR__ . '/vendor/autoload.php',
+    getcwd() . '/vendor/autoload.php',
 ];
 
-foreach ($autoloadFiles as $file) {
-    if (file_exists($file)) {
-        require_once $file;
+$loaded = false;
+foreach ($autoloadCandidates as $candidate) {
+    if (file_exists($candidate)) {
+        require_once $candidate;
+        $loaded = true;
         break;
     }
 }
 
+if (! $loaded) {
+    fwrite(STDERR, "Leakless autoload.php not found. Run composer install first.\n");
+    exit(1);
+}
+
 use TheMattos\Leakless\Dev\Console\Application;
 
-$app = new Application();
-$app->run();
+$app = new Application;
+$exitCode = $app->run();
+
+exit($exitCode);

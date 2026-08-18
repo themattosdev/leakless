@@ -47,6 +47,9 @@
             "Tests\\Unit\\": "tests/Unit/"
         }
     },
+    "bin": [
+        "packages/dev/bin/leakless"
+    ],
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true

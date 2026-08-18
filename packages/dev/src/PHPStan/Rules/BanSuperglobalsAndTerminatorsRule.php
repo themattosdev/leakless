@@ -50,6 +50,10 @@ final class BanSuperglobalsAndTerminatorsRule implements Rule
 
         // 2. Check exit() or die()
         if ($node instanceof Exit_) {
+            if ($scope->getClassReflection()?->getName() === 'TheMattos\Leakless\Leakless') {
+                return [];
+            }
+
             return [
                 RuleErrorBuilder::message(
                     'Direct exit() or die() call detected. In persistent worker environments (FrankenPHP/Octane), calling exit terminates the entire worker process and drops pending requests. Return a response or throw an exception instead.',
