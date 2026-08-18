@@ -34,23 +34,33 @@ final class FrankenPhp
             $loops++;
             $guardian->startRequest();
 
+            $shouldBreak = false;
+
             try {
                 if ($requestHandlerRunner !== null) {
                     $continue = $requestHandlerRunner($app);
                     if (! $continue) {
-                        break;
+                        $shouldBreak = true;
                     }
                 } elseif (function_exists('frankenphp_handle_request')) {
                     $continue = frankenphp_handle_request($app);
                     if (! $continue) {
-                        break;
+                        $shouldBreak = true;
                     }
                 } else {
                     // Direct invocation fallback if running in CLI without native frankenphp module
                     $app();
                 }
             } finally {
-                $guardian->endRequest();
+                $report = $guardian->endRequest();
+
+                if ($report->shouldRecycle) {
+                    $shouldBreak = true;
+                }
+            }
+
+            if ($shouldBreak) {
+                break;
             }
         }
 

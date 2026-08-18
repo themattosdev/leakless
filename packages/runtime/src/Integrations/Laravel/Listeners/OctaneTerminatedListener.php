@@ -8,6 +8,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use PDO;
+use Psr\Log\LoggerInterface;
 use TheMattos\Leakless\Leakless;
 use Throwable;
 
@@ -23,7 +24,11 @@ final class OctaneTerminatedListener
         $activePdos = $this->collectActivePdoConnections();
         $metadata = $this->extractMetadata($event);
 
-        $this->guardian->endRequest($metadata, $activePdos);
+        $report = $this->guardian->endRequest($metadata, $activePdos);
+
+        if ($report->shouldRecycle) {
+            $this->signalOctaneRecycle();
+        }
     }
 
     /**
@@ -83,5 +88,34 @@ final class OctaneTerminatedListener
         }
 
         return $metadata;
+    }
+
+    /**
+     * Notify Laravel Octane to gracefully stop the current worker and spawn a fresh replacement.
+     */
+    private function signalOctaneRecycle(): void
+    {
+        if ($this->app->bound('octane')) {
+            try {
+                $octane = $this->app->make('octane');
+                if (is_object($octane) && method_exists($octane, 'stopWorker')) {
+                    $octane->stopWorker();
+                }
+            } catch (Throwable $e) {
+                if ($this->app->bound('log')) {
+                    try {
+                        /** @var LoggerInterface $log */
+                        $log = $this->app->make('log');
+                        $log->error("[Leakless] Failed to signal Octane worker stop: {$e->getMessage()}", [
+                            'exception' => $e,
+                        ]);
+                    } catch (Throwable) {
+                        error_log("[Leakless] Failed to signal Octane worker stop: {$e->getMessage()}");
+                    }
+                } else {
+                    error_log("[Leakless] Failed to signal Octane worker stop: {$e->getMessage()}");
+                }
+            }
+        }
     }
 }

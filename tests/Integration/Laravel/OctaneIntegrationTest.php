@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Laravel;
 
+use Exception;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase;
 use TheMattos\Leakless\DTOs\Config;
@@ -37,6 +39,7 @@ final class OctaneIntegrationTest extends TestCase
 
         $config->set('leakless.max_rss_mb', 256);
         $config->set('leakless.check_transactions', true);
+        $config->set('leakless.check_file_descriptors', true);
         $config->set('leakless.log_violations', false);
     }
 
@@ -59,6 +62,7 @@ final class OctaneIntegrationTest extends TestCase
         $this->assertInstanceOf(Leakless::class, $leakless);
         $this->assertInstanceOf(Config::class, $config);
         $this->assertSame(256, $config->maxRssMb);
+        $this->assertTrue($config->checkFileDescriptors);
         $this->assertSame($leakless, $app->make('leakless'));
     }
 
@@ -100,5 +104,99 @@ final class OctaneIntegrationTest extends TestCase
         $this->assertNotNull($report);
         $this->assertTrue($report->danglingTransactionsDetected);
         $this->assertSame(1, $report->danglingTransactionsCount);
+    }
+
+    public function test_it_signals_octane_to_stop_worker_when_recycling_threshold_is_breached(): void
+    {
+        /** @var Application $app */
+        $app = $this->app;
+
+        $stopWorkerCalled = false;
+
+        // Mock the Octane service in the Laravel container
+        $octaneMock = new class($stopWorkerCalled)
+        {
+            public function __construct(public bool &$stopped) {}
+
+            public function stopWorker(): void
+            {
+                $this->stopped = true;
+            }
+        };
+
+        $app->instance('octane', $octaneMock);
+
+        /** @var ConfigRepository $configRepo */
+        $configRepo = $app->make('config');
+        $configRepo->set('leakless.max_requests', 1);
+
+        $app->forgetInstance(Config::class);
+        $app->forgetInstance(Leakless::class);
+
+        /** @var Leakless $configuredLeakless */
+        $configuredLeakless = $app->make(Leakless::class);
+
+        // Simulate Octane RequestReceived event
+        Event::dispatch('Laravel\Octane\Events\RequestReceived', new class
+        {
+            public mixed $request = null;
+        });
+
+        // Simulate Octane RequestTerminated event
+        Event::dispatch('Laravel\Octane\Events\RequestTerminated', new class
+        {
+            public mixed $request = null;
+
+            public mixed $response = null;
+        });
+
+        $this->assertTrue($stopWorkerCalled);
+        $report = $configuredLeakless->getLastReport();
+        $this->assertNotNull($report);
+        $this->assertTrue($report->shouldRecycle);
+    }
+
+    public function test_it_logs_error_when_octane_stop_worker_throws_exception(): void
+    {
+        /** @var Application $app */
+        $app = $this->app;
+
+        $octaneFaultyMock = new class
+        {
+            public function stopWorker(): void
+            {
+                throw new Exception('Octane runner unavailable');
+            }
+        };
+
+        $app->instance('octane', $octaneFaultyMock);
+
+        /** @var ConfigRepository $configRepo */
+        $configRepo = $app->make('config');
+        $configRepo->set('leakless.max_requests', 1);
+
+        $app->forgetInstance(Config::class);
+        $app->forgetInstance(Leakless::class);
+
+        Log::shouldReceive('warning')->atLeast()->once();
+        Log::shouldReceive('error')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return str_contains($message, 'Failed to signal Octane worker stop')
+                    && isset($context['exception']);
+            });
+
+        // Simulate Request cycle
+        Event::dispatch('Laravel\Octane\Events\RequestReceived', new class
+        {
+            public mixed $request = null;
+        });
+
+        Event::dispatch('Laravel\Octane\Events\RequestTerminated', new class
+        {
+            public mixed $request = null;
+
+            public mixed $response = null;
+        });
     }
 }
