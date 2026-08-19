@@ -23,7 +23,7 @@ return [
     | from the Linux kernel (/proc/self/statm) before graceful recycling.
     |
     */
-    'max_rss_mb' => (int) env('LEAKLESS_MAX_RSS_MB', 256),
+    'max_rss_mb' => (int) env('LEAKLESS_MAX_RSS_MB', 96),
 
     /*
     |--------------------------------------------------------------------------
@@ -64,7 +64,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Optional maximum number of requests handled by a worker before recycling.
-    | Set to null to rely solely on memory and state auditing.
+    | Set to null to rely solely on memory and state auditing (e.g. 1000).
     |
     */
     'max_requests' => env('LEAKLESS_MAX_REQUESTS') ? (int) env('LEAKLESS_MAX_REQUESTS') : null,

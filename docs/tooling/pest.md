@@ -34,7 +34,7 @@ test('batch processing runs cleanly', function () {
     expect(function () {
         $service = new ReportGenerator();
         $service->generate();
-    })->toRunCleanly(maxDriftMb: 5.0); // Asserts RAM growth <= 5MB
+    })->toRunCleanly(maxDriftMb: 0.25); // Asserts RAM growth <= 0.25MB (256KB)
 });
 ```
 
@@ -65,7 +65,7 @@ final class PaymentServiceTest extends TestCase
         $this->assertRunsCleanly(function () {
             $service = new PaymentService();
             $service->process();
-        }, maxDriftMb: 2.0);
+        }, maxDriftMb: 0.25);
     }
 }
 ```

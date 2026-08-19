@@ -7,12 +7,12 @@ use TheMattos\Leakless\DTOs\Report;
 use TheMattos\Leakless\Leakless;
 use TheMattos\Leakless\Support\ProcStatmParser;
 
-test('it executes complete request cycle and produces clean report with standard 256MB RSS config', function () {
+test('it executes complete request cycle and produces clean report with standard 96MB RSS config', function () {
     $recycled = false;
     $reported = null;
 
     $config = new Config(
-        maxRssMb: 256,
+        maxRssMb: 96,
         onReport: function (Report $r) use (&$reported): void {
             $reported = $r;
         },
@@ -40,7 +40,7 @@ test('it intercepts and rolls back dangling PDO transactions in request cycle', 
     $pdo = new PDO('sqlite::memory:');
     $pdo->exec('CREATE TABLE test (id INTEGER PRIMARY KEY)');
 
-    $guardian = new Leakless(new Config(maxRssMb: 128));
+    $guardian = new Leakless(new Config(maxRssMb: 96));
     $guardian->registerConnection($pdo);
 
     $guardian->startRequest();
@@ -62,7 +62,7 @@ test('it rolls back mutated timezone and output buffers on endRequest', function
     $initialTz = date_default_timezone_get();
     $initialOb = ob_get_level();
 
-    $guardian = new Leakless(new Config(maxRssMb: 256));
+    $guardian = new Leakless(new Config(maxRssMb: 96));
 
     $guardian->startRequest();
 
@@ -82,14 +82,14 @@ test('it triggers recycling when RSS threshold is breached', function () {
     $recycleReason = null;
 
     $config = new Config(
-        maxRssMb: 256,
+        maxRssMb: 96,
         autoRecycleOnViolation: true,
     );
 
-    // Fake statm file simulating 300MB RSS (76800 pages * 4096 bytes)
+    // Fake statm file simulating 150MB RSS (38400 pages * 4096 bytes)
     $fakeStatm = tempnam(sys_get_temp_dir(), 'leakless_statm_');
     assert($fakeStatm !== false);
-    file_put_contents($fakeStatm, '100000 76800 5000 100 0 5000 0');
+    file_put_contents($fakeStatm, '50000 38400 5000 100 0 5000 0');
 
     $parser = new ProcStatmParser(statmPath: $fakeStatm);
 
@@ -107,7 +107,7 @@ test('it triggers recycling when RSS threshold is breached', function () {
 
     expect($report->shouldRecycle)->toBeTrue()
         ->and($recycled)->toBeTrue()
-        ->and($recycleReason)->toContain('RSS memory limit exceeded: 300MB > 256MB');
+        ->and($recycleReason)->toContain('RSS memory limit exceeded: 150MB > 96MB');
 
     @unlink($fakeStatm);
 });
@@ -117,7 +117,7 @@ test('it triggers recycling when maxRequests limit is reached', function () {
     $recycleReason = null;
 
     $config = new Config(
-        maxRssMb: 256,
+        maxRssMb: 96,
         maxRequests: 2,
         autoRecycleOnViolation: true,
     );
@@ -148,7 +148,7 @@ test('it automatically logs violations when state is dirty', function () {
     $loggedMessages = [];
 
     $config = new Config(
-        maxRssMb: 256,
+        maxRssMb: 96,
         maxRequests: 1,
         logViolations: true,
         logger: function (string $msg, Report $r) use (&$loggedMessages): void {

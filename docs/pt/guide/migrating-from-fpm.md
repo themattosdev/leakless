@@ -62,25 +62,24 @@ test('serviço de faturamento legado não possui estado estático mutável', fun
     expect(LegacyInvoiceService::class)->toBeLeakless();
 });
 
-test('fluxo de checkout executa mantendo o estado limpo do worker', function () {
+test('fluxo de registro de usuário executa de forma limpa', function () {
     expect(function () {
-        $service = app(CheckoutWorkflow::class);
-        $service->processPendingOrders();
-    })->toRunCleanly(maxDriftMb: 2.0);
+        (new RegisterUserController())->handle();
+    })->toRunCleanly(maxDriftMb: 0.25);
 });
 ```
 
 E em testes de integração do Laravel:
 
 ```php
-test('endpoint de pedidos mantém a integridade do estado do worker', function () {
-    $response = $this->postJson('/api/v1/orders', [
-        'items' => [1, 2, 3],
+test('api de checkout não vaza transações ou memória', function () {
+    $response = $this->postJson('/api/checkout', [
+        'plan' => 'pro',
     ]);
 
     $response->assertOk()
         ->assertNoDanglingTransactions()
-        ->assertNoMemoryDrift(maxAllowedMb: 2.0)
+        ->assertNoMemoryDrift(maxAllowedMb: 0.25)
         ->assertCleanWorkerState();
 });
 ```

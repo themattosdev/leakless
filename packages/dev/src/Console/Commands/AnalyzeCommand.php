@@ -38,7 +38,7 @@ final class AnalyzeCommand extends Command
                 'm',
                 InputOption::VALUE_REQUIRED,
                 'Memory limit for the analyzer',
-                '512M',
+                '256M',
             )
             ->addOption(
                 'json',
@@ -57,7 +57,7 @@ final class AnalyzeCommand extends Command
         /** @var string|null $configPath */
         $configPath = $input->getOption('configuration');
         $memoryLimitRaw = $input->getOption('memory-limit');
-        $memoryLimit = is_string($memoryLimitRaw) ? $memoryLimitRaw : '512M';
+        $memoryLimit = is_string($memoryLimitRaw) ? $memoryLimitRaw : '256M';
         $jsonOutput = (bool) $input->getOption('json');
 
         $resolvedPaths = $this->resolvePaths($paths);

@@ -9,7 +9,7 @@ Persistent workers accumulate fragmented memory over time. Rather than waiting f
 A worker is marked for recycling when either of the following thresholds is breached:
 
 1. **Max RSS Memory Threshold (`maxRssMb`)**:
-   - The real Linux Resident Set Size measured at the end of the request exceeds the configured ceiling (e.g. `256.0 MB`).
+   - The real Linux Resident Set Size measured at the end of the request exceeds the configured ceiling (e.g. `96.0 MB`).
 2. **Max Requests Ceiling (`maxRequests`)**:
    - The total number of HTTP requests handled by the worker reaches the limit (e.g. `1000 requests`).
 
@@ -29,10 +29,10 @@ A worker is marked for recycling when either of the following thresholds is brea
 ## Configuration Example
 
 ```php
-use TheMattos\Leakless\Config;
+use TheMattos\Leakless\DTOs\Config;
 
 $config = new Config(
-    maxRssMb: 512.0,    // Recycle if worker RSS exceeds 512MB
-    maxRequests: 5000,  // Recycle after 5,000 handled requests
+    maxRssMb: 96.0,     // Recycle if worker RSS exceeds 96MB
+    maxRequests: 1000,  // Recycle after 1,000 handled requests
 );
 ```

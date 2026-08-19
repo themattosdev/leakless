@@ -72,7 +72,7 @@ final class AssertsLeaklessTest extends TestCase
 
         $this->assertNoDanglingTransactions($report);
         $this->assertCleanWorkerState($report);
-        $this->assertNoMemoryDrift($report, maxAllowedMb: 1.0);
+        $this->assertNoMemoryDrift($report, maxAllowedMb: 0.25);
     }
 
     public function test_it_fails_assert_no_dangling_transactions_when_transactions_leak(): void

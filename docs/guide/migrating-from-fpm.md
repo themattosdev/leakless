@@ -62,25 +62,24 @@ test('legacy invoice service contains no mutable static state', function () {
     expect(LegacyInvoiceService::class)->toBeLeakless();
 });
 
-test('critical checkout workflow runs with clean worker state', function () {
+test('user registration endpoint executes cleanly', function () {
     expect(function () {
-        $service = app(CheckoutWorkflow::class);
-        $service->processPendingOrders();
-    })->toRunCleanly(maxDriftMb: 2.0);
+        (new RegisterUserController())->handle();
+    })->toRunCleanly(maxDriftMb: 0.25);
 });
 ```
 
 And in Laravel feature tests:
 
 ```php
-test('api checkout endpoint maintains state integrity', function () {
-    $response = $this->postJson('/api/v1/orders', [
-        'items' => [1, 2, 3],
+test('checkout api does not leak transactions or memory', function () {
+    $response = $this->postJson('/api/checkout', [
+        'plan' => 'pro',
     ]);
 
     $response->assertOk()
         ->assertNoDanglingTransactions()
-        ->assertNoMemoryDrift(maxAllowedMb: 2.0)
+        ->assertNoMemoryDrift(maxAllowedMb: 0.25)
         ->assertCleanWorkerState();
 });
 ```

@@ -20,7 +20,7 @@ final readonly class Config
      * @param  (Closure(Report): void)|null  $onReport  Optional telemetry closure executed after each audited request.
      */
     public function __construct(
-        public int $maxRssMb = 128,
+        public int $maxRssMb = 96,
         public bool $checkTransactions = true,
         public bool $checkFileDescriptors = false,
         public bool $autoRecycleOnViolation = true,

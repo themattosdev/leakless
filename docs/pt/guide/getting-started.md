@@ -46,7 +46,7 @@ Se você utiliza o Laravel Octane, o Leakless não requer **nenhuma alteração 
 
 ```ini
 LEAKLESS_ENABLED=true
-LEAKLESS_MAX_RSS_MB=256
+LEAKLESS_MAX_RSS_MB=96
 LEAKLESS_MAX_REQUESTS=1000
 LEAKLESS_CHECK_TRANSACTIONS=true
 LEAKLESS_LOG_VIOLATIONS=true
@@ -56,22 +56,22 @@ Consulte o [Guia do Laravel Octane](./laravel-octane.md) para configurações av
 
 ---
 
-### PHP Vanilla & FrankenPHP Worker Mode
+## 2. Instalação em PHP Vanilla (FrankenPHP)
 
-Para scripts de workers persistentes personalizados, envolva seu handler de requisição com o `FrankenPhp::run()`:
+Em projetos sem framework ou sob scripts customizados do FrankenPHP, utilize a fachada fluída `FrankenPhp::run()`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-use TheMattos\Leakless\Config;
+use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\Integrations\FrankenPhp\FrankenPhp;
 
 require_once __DIR__ . '/vendor/autoload.php';
 
 $config = new Config(
-    maxRssMb: 256,
+    maxRssMb: 96,
     maxRequests: 1000,
     checkTransactions: true,
     logViolations: true,

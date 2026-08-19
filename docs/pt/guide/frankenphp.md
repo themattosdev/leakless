@@ -20,7 +20,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 // 1. Configurar limites e políticas de proteção
 $config = new Config(
-    maxRssMb: 256.0,
+    maxRssMb: 96.0,
     maxRequests: 1000,
     checkTransactions: true,
     rollbackState: true,

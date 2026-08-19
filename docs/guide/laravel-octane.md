@@ -32,7 +32,7 @@ This creates `config/leakless.php`:
 return [
     'enabled' => env('LEAKLESS_ENABLED', true),
 
-    'max_rss_mb' => env('LEAKLESS_MAX_RSS_MB', 256),
+    'max_rss_mb' => env('LEAKLESS_MAX_RSS_MB', 96),
 
     'max_requests' => env('LEAKLESS_MAX_REQUESTS', null),
 
@@ -49,7 +49,7 @@ return [
 | Variable | Type | Default | Description |
 | :--- | :---: | :---: | :--- |
 | `LEAKLESS_ENABLED` | `bool` | `true` | Enable or disable Leakless auditing. |
-| `LEAKLESS_MAX_RSS_MB` | `int\|float` | `256` | Real Linux kernel RSS threshold in MB before recycling. |
+| `LEAKLESS_MAX_RSS_MB` | `int\|float` | `96` | Real Linux kernel RSS threshold in MB before recycling. |
 | `LEAKLESS_MAX_REQUESTS` | `int\|null` | `null` | Maximum request count per worker before recycling. |
 | `LEAKLESS_CHECK_TRANSACTIONS` | `bool` | `true` | Detect and automatically roll back open PDO transactions. |
 | `LEAKLESS_ROLLBACK_STATE` | `bool` | `true` | Revert timezones, output buffers, and error levels. |
@@ -69,7 +69,7 @@ test('checkout endpoint leaves clean worker state', function () {
 
     $response->assertOk()
         ->assertNoDanglingTransactions()
-        ->assertNoMemoryDrift(maxAllowedMb: 2.0)
+        ->assertNoMemoryDrift(maxAllowedMb: 0.25)
         ->assertCleanWorkerState();
 });
 ```

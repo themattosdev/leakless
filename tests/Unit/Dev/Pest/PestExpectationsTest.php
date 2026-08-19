@@ -57,5 +57,5 @@ test('expect toRunCleanly asserts clean execution and memory drift ceiling', fun
     })->toRunCleanly()
         ->and(function () {
             $data = ['item' => 'value'];
-        })->toRunCleanly(maxDriftMb: 10.0);
+        })->toRunCleanly(maxDriftMb: 0.25);
 });

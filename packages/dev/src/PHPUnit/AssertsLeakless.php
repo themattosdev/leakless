@@ -120,7 +120,7 @@ trait AssertsLeakless
     /**
      * Asserts that a Report or Laravel TestResponse did not exceed the allowed memory drift.
      */
-    public static function assertNoMemoryDrift(mixed $target, float $maxAllowedMb = 5.0, string $message = ''): void
+    public static function assertNoMemoryDrift(mixed $target, float $maxAllowedMb = 0.25, string $message = ''): void
     {
         $report = self::resolveReportFromTarget($target);
 

@@ -48,39 +48,32 @@ composer require --dev themattosdev/leakless-dev
 
 ::: code-group
 ```ini [Laravel Octane (.env)]
-# Zero-Config: O Leakless é descoberto automaticamente e intercepta os eventos do Octane
-LEAKLESS_MAX_RSS_MB=256
-LEAKLESS_MAX_REQUESTS=1000
+LEAKLESS_ENABLED=true
+LEAKLESS_MAX_RSS_MB=96
 LEAKLESS_CHECK_TRANSACTIONS=true
-LEAKLESS_ROLLBACK_STATE=true
-LEAKLESS_LOG_VIOLATIONS=true
+LEAKLESS_CHECK_FILE_DESCRIPTORS=false
 ```
 
-```php [FrankenPHP Worker Loop]
-use TheMattos\Leakless\Config;
+```php [Vanilla FrankenPHP]
+use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\Integrations\FrankenPhp\FrankenPhp;
 
-$config = new Config(
-    maxRssMb: 256,
-    maxRequests: 1000,
-    checkTransactions: true,
+FrankenPhp::run(
+    app: fn () => print(json_encode(['status' => 'ok'])),
+    config: new Config(
+        maxRssMb: 96,
+        checkTransactions: true,
+    ),
 );
-
-FrankenPhp::run(function () {
-    // Tratamento da requisição da aplicação
-    echo json_encode(['status' => 'ok', 'timestamp' => time()]);
-}, $config);
 ```
 
-```php [Asserções de Teste Pest]
-use App\Services\OrderProcessor;
-
-test('processador de pedidos executa sem drift de memória ou transações órfãs', function () {
-    expect(OrderProcessor::class)->toBeLeakless();
+```php [Asserções Pest PHP]
+test('endpoint de pedidos executa de forma limpa sem vazamentos', function () {
+    expect(PaymentGateway::class)->toBeLeakless();
 
     expect(function () {
-        (new OrderProcessor())->handleBatch();
-    })->toRunCleanly(maxDriftMb: 5.0);
+        (new ProcessInvoicesJob())->handle();
+    })->toRunCleanly(maxDriftMb: 0.25);
 });
 ```
 

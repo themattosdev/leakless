@@ -8,7 +8,7 @@ use TheMattos\Leakless\DTOs\Report;
 test('it instantiates with default parameters', function () {
     $config = new Config;
 
-    expect($config->maxRssMb)->toBe(128)
+    expect($config->maxRssMb)->toBe(96)
         ->and($config->checkTransactions)->toBeTrue()
         ->and($config->checkFileDescriptors)->toBeFalse()
         ->and($config->autoRecycleOnViolation)->toBeTrue()

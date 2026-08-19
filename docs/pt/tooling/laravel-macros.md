@@ -24,16 +24,16 @@ test('checkout de pedidos não deixa transações de banco abertas', function ()
 
 ---
 
-### 2. `assertNoMemoryDrift(?float $maxAllowedMb = 5.0)`
+### 2. `assertNoMemoryDrift(?float $maxAllowedMb = 0.25)`
 
-Valida que a variação de memória RAM física do kernel Linux durante a requisição permaneceu dentro do limite aceitável em megabytes:
+Assere que a variação de memória RAM física do kernel Linux durante a requisição permaneceu dentro do teto tolerável:
 
 ```php
-test('exportação de relatórios não provoca vazamento excessivo de memória', function () {
-    $response = $this->get('/reports/export-csv');
+test('endpoint da api não provoca drift excessivo de memória', function () {
+    $response = $this->get('/api/users');
 
     $response->assertOk()
-        ->assertNoMemoryDrift(maxAllowedMb: 10.0);
+        ->assertNoMemoryDrift(maxAllowedMb: 0.25);
 });
 ```
 

@@ -8,31 +8,30 @@ Workers persistentes acumulam memória fragmentada ao longo do tempo. Em vez de 
 
 Um worker é sinalizado para reciclagem quando qualquer um dos seguintes limites é ultrapassado:
 
-1. **Teto de Memória RSS Real (`maxRssMb`)**:
-   - O Resident Set Size medido no Linux ao final da requisição ultrapassa o valor configurado (ex: `256.0 MB`).
+1. **Teto de Memória RSS (`maxRssMb`)**:
+   - O Resident Set Size medido no Linux ao final da requisição ultrapassa o valor configurado (ex: `96.0 MB`).
 2. **Limite de Requisições (`maxRequests`)**:
-   - O número total de requisições atendidas pelo worker atinge o limite configurado (ex: `1000 requisições`).
+   - A contagem total de requisições atendidas pelo worker atinge o limite (ex: `1000 requisições`).
 
 ---
 
-## A Sequência de Reciclagem
+## O Fluxo de Reciclagem
 
-1. **Conclusão da Requisição Ativa**: A requisição em andamento é processada normalmente, gera a resposta HTTP e a envia com sucesso para o cliente.
-2. **Auditoria de Pós-Requisição**: No `$leakless->endRequest()`, o Leakless finaliza auditorias de transações PDO, restaura fuso horário/buffers e avalia o RSS.
-3. **Sinalização de Reinício Gracioso**:
-   - No **Laravel Octane**: Notifica o runner do Octane para reciclar o worker. O Octane inicializa um novo worker limpo em background.
-   - No **FrankenPHP Vanilla**: O `FrankenPhp::run()` encerra o loop de forma graciosa (`exit(0)`), permitindo que o gerenciador do FrankenPHP suba um novo worker.
-   - Em **Loops Manuais**: O booleano `Report::$shouldRecycle` informa ao seu loop que é hora de finalizar o processo.
+1. **Conclusão da Requisição Ativa**: A requisição em andamento executa normalmente, gera a resposta HTTP e a envia ao cliente.
+2. **Auditoria no `endRequest()`**: O Leakless executa os rollbacks de transação, restauração de fuso horário e avaliação de limites.
+3. **Sinalização Graciosa**:
+   - No **Laravel Octane**: Sinaliza o runner do Octane para reciclar o worker de forma não bloqueante.
+   - No **Vanilla FrankenPHP**: O `FrankenPhp::run()` quebra o loop e sai graciosamente (`exit(0)`), permitindo que o FrankenPHP crie um novo processo.
 
 ---
 
 ## Exemplo de Configuração
 
 ```php
-use TheMattos\Leakless\Config;
+use TheMattos\Leakless\DTOs\Config;
 
 $config = new Config(
-    maxRssMb: 512.0,    // Recicla se a memória física ultrapassar 512MB
-    maxRequests: 5000,  // Recicla após 5.000 requisições processadas
+    maxRssMb: 96.0,     // Recicla se o RSS ultrapassar 96MB
+    maxRequests: 1000,  // Recicla após 1.000 requisições processadas
 );
 ```

@@ -40,36 +40,35 @@ composer require --dev themattosdev/leakless-dev
 ### 1. Vanilla PHP / FrankenPHP Loop
 
 ```php
-use TheMattos\Leakless\Config;
+use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\Integrations\FrankenPhp\FrankenPhp;
 
-$config = new Config(maxRssMb: 256, maxRequests: 1000);
-
-FrankenPhp::run(function () {
-    echo json_encode(['status' => 'ok', 'timestamp' => time()]);
-}, $config);
+FrankenPHP::run(
+    app: function () {
+        echo json_encode(['status' => 'ok']);
+    },
+    config: new Config(maxRssMb: 96, maxRequests: 1000),
+);
 ```
 
 ### 2. Laravel Octane (Zero-Config)
 
-Leakless automatically registers into Laravel Octane via package auto-discovery. Configure parameters in `.env`:
-
 ```env
-LEAKLESS_MAX_RSS_MB=256
-LEAKLESS_MAX_REQUESTS=1000
+LEAKLESS_ENABLED=true
+LEAKLESS_MAX_RSS_MB=96
 LEAKLESS_CHECK_TRANSACTIONS=true
-LEAKLESS_LOG_VIOLATIONS=true
+LEAKLESS_CHECK_FILE_DESCRIPTORS=false
 ```
 
-### 3. Pest Testing Assertions
+### 3. Automated Testing (Pest & PHPUnit)
 
 ```php
-test('services are worker safe and execute cleanly', function () {
+test('service executes cleanly without leaking memory or state', function () {
     expect(PaymentService::class)->toBeLeakless();
 
     expect(function () {
-        (new OrderProcessor())->handle();
-    })->toRunCleanly(maxDriftMb: 5.0);
+        (new PaymentService())->processPendingTransactions();
+    })->toRunCleanly(maxDriftMb: 0.25);
 });
 ```
 

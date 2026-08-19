@@ -55,7 +55,7 @@ final class LeaklessServiceProvider extends ServiceProvider
             };
 
             return new Config(
-                maxRssMb: (int) ($cfg['max_rss_mb'] ?? 256),
+                maxRssMb: (int) ($cfg['max_rss_mb'] ?? 96),
                 checkTransactions: (bool) ($cfg['check_transactions'] ?? true),
                 checkFileDescriptors: (bool) ($cfg['check_file_descriptors'] ?? false),
                 autoRecycleOnViolation: (bool) ($cfg['auto_recycle'] ?? true),

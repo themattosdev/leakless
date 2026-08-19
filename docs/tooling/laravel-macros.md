@@ -24,16 +24,16 @@ test('order checkout leaves no uncommitted database transactions', function () {
 
 ---
 
-### 2. `assertNoMemoryDrift(?float $maxAllowedMb = 5.0)`
+### 2. `assertNoMemoryDrift(?float $maxAllowedMb = 0.25)`
 
 Asserts that the physical Linux kernel RSS memory variation during the HTTP request remained within the acceptable megabyte limit:
 
 ```php
-test('large file download does not cause excessive memory drift', function () {
-    $response = $this->get('/reports/export-csv');
+test('api endpoint does not cause excessive memory drift', function () {
+    $response = $this->get('/api/users');
 
     $response->assertOk()
-        ->assertNoMemoryDrift(maxAllowedMb: 10.0);
+        ->assertNoMemoryDrift(maxAllowedMb: 0.25);
 });
 ```
 

@@ -9,33 +9,31 @@ Leakless is configured via the `TheMattos\Leakless\Config` object in vanilla PHP
 Instantiate the `Config` object with your desired options:
 
 ```php
-use TheMattos\Leakless\Config;
-use TheMattos\Leakless\Leakless;
+use TheMattos\Leakless\DTOs\Config;
 
 $config = new Config(
-    enabled: true,             // Enable or disable Leakless
-    maxRssMb: 256.0,           // Maximum Linux kernel RSS memory threshold in MB
-    maxRequests: 1000,         // Maximum requests handled before worker recycling
-    checkTransactions: true,   // Detect and roll back uncommitted PDO transactions
-    rollbackState: true,       // Restore timezone, output buffers, and error levels
-    logViolations: true,       // Emit diagnostic logs when anomalies are caught
+    maxRssMb: 96.0,            // Maximum Linux kernel RSS memory threshold in MB
+    maxRequests: 1000,         // Ceiling on requests before worker recycling
+    checkTransactions: true,   // Auto-rollback uncommitted PDO transactions
+    checkFileDescriptors: false, // Audit unclosed file handles (/proc/self/fd)
+    autoRecycleOnViolation: true, // Graceful worker recycling when breached
+    logViolations: true,       // Emit warnings on anomalies
 );
-
-$leakless = new Leakless($config);
 ```
 
 ---
 
-## 2. Laravel Octane Configuration
+## 2. Environment Variables (.env)
 
-In Laravel applications, configure settings directly in `.env`:
+In Laravel Octane environments, configure Leakless using `.env` variables:
 
 ```ini
 LEAKLESS_ENABLED=true
-LEAKLESS_MAX_RSS_MB=256
+LEAKLESS_MAX_RSS_MB=96
 LEAKLESS_MAX_REQUESTS=1000
 LEAKLESS_CHECK_TRANSACTIONS=true
-LEAKLESS_ROLLBACK_STATE=true
+LEAKLESS_CHECK_FILE_DESCRIPTORS=false
+LEAKLESS_AUTO_RECYCLE=true
 LEAKLESS_LOG_VIOLATIONS=true
 ```
 
@@ -47,12 +45,12 @@ php artisan vendor:publish --tag="leakless-config"
 
 ---
 
-## 3. Options Reference
+## 3. Configuration Reference Table
 
-| Option | Environment Variable | Default | Description |
+| Key | Environment Variable | Default | Description |
 | :--- | :--- | :---: | :--- |
-| `enabled` | `LEAKLESS_ENABLED` | `true` | Master switch to enable or bypass Leakless auditing. |
-| `max_rss_mb` | `LEAKLESS_MAX_RSS_MB` | `256.0` | Real Linux kernel RSS threshold in MB. If breached, worker recycling is triggered. |
+| `enabled` | `LEAKLESS_ENABLED` | `true` | Master toggle to enable or disable Leakless audits. |
+| `max_rss_mb` | `LEAKLESS_MAX_RSS_MB` | `96.0` | Real Linux kernel RSS threshold in MB. If breached, worker recycling is triggered. |
 | `max_requests` | `LEAKLESS_MAX_REQUESTS` | `null` | Maximum request count per worker before triggering graceful recycling (`null` = unlimited). |
 | `check_transactions` | `LEAKLESS_CHECK_TRANSACTIONS` | `true` | Automatically audits and rolls back open PDO transactions at request completion. |
 | `check_file_descriptors` | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `false` | Inspects `/proc/self/fd` for unclosed file handles and lingering network sockets. |

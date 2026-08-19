@@ -36,7 +36,7 @@ final class TestResponseMacros
             return $this;
         });
 
-        TestResponse::macro('assertNoMemoryDrift', function (float $maxAllowedMb = 5.0): TestResponse {
+        TestResponse::macro('assertNoMemoryDrift', function (float $maxAllowedMb = 0.25): TestResponse {
             /** @var TestResponse<Response> $this */
             $guardian = app(Leakless::class);
             $report = $guardian->getLastReport();

@@ -27,7 +27,7 @@ final class TestResponseMacrosTest extends TestCase
     {
         /** @var ConfigRepository $config */
         $config = $app['config'];
-        $config->set('leakless.max_rss_mb', 256);
+        $config->set('leakless.max_rss_mb', 96);
         $config->set('leakless.log_violations', false);
     }
 
@@ -64,7 +64,7 @@ final class TestResponseMacrosTest extends TestCase
         // Assert macros execute without throwing
         // @phpstan-ignore-next-line
         $testResponse->assertNoDanglingTransactions()
-            ->assertNoMemoryDrift(10.0)
+            ->assertNoMemoryDrift(0.25)
             ->assertCleanWorkerState();
     }
 }

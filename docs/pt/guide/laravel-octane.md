@@ -32,7 +32,7 @@ O arquivo `config/leakless.php` será criado:
 return [
     'enabled' => env('LEAKLESS_ENABLED', true),
 
-    'max_rss_mb' => env('LEAKLESS_MAX_RSS_MB', 256),
+    'max_rss_mb' => env('LEAKLESS_MAX_RSS_MB', 96),
 
     'max_requests' => env('LEAKLESS_MAX_REQUESTS', null),
 
@@ -69,7 +69,7 @@ test('endpoint de checkout mantém o worker em estado limpo', function () {
 
     $response->assertOk()
         ->assertNoDanglingTransactions()
-        ->assertNoMemoryDrift(maxAllowedMb: 2.0)
+        ->assertNoMemoryDrift(maxAllowedMb: 0.25)
         ->assertCleanWorkerState();
 });
 ```

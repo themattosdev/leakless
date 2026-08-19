@@ -20,22 +20,15 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 // 1. Configure thresholds and safety policies
 $config = new Config(
-    maxRssMb: 256.0,
+    maxRssMb: 96.0,
     maxRequests: 1000,
     checkTransactions: true,
-    rollbackState: true,
     logViolations: true,
 );
 
-// 2. Wrap your application handler in the FrankenPHP worker loop
 FrankenPhp::run(function () {
-    // Application request logic
-    header('Content-Type: application/json');
-    echo json_encode([
-        'message' => 'Handled cleanly by persistent worker',
-        'worker_pid' => getmypid(),
-        'timestamp' => microtime(true),
-    ]);
+    // Application handler
+    echo json_encode(['status' => 'ok']);
 }, $config);
 ```
 
