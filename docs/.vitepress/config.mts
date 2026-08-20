@@ -1,26 +1,106 @@
 import { defineConfig } from 'vitepress';
 import pkg from '../../package.json';
 
+const SITE_URL = 'https://leakless.themattos.dev';
+const OG_IMAGE = 'https://raw.githubusercontent.com/themattosdev/leakless/master/art/banner.png';
+
 export default defineConfig({
   title: 'Leakless',
+  titleTemplate: ':title - Leakless',
   description: 'Zero-State & Memory Leak Prevention for PHP Persistent Workers (FrankenPHP & Laravel Octane)',
   lastUpdated: false,
   cleanUrls: true,
 
+  sitemap: {
+    hostname: SITE_URL,
+  },
+
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#ff2d20' }],
+    ['meta', { name: 'author', content: 'Jonathan Gonçalves' }],
+    ['meta', { name: 'robots', content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' }],
+    [
+      'meta',
+      {
+        name: 'keywords',
+        content: 'php, frankenphp, laravel, octane, roadrunner, swoole, memory leak, persistent worker, garbage collection, proc statm, pdo transactions, phpstan, pest, zero state, worker recycling',
+      },
+    ],
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:locale', content: 'en' }],
-    ['meta', { property: 'og:title', content: 'Leakless | Zero-State & Memory Leak Prevention for PHP Persistent Workers' }],
     ['meta', { property: 'og:site_name', content: 'Leakless' }],
-    ['meta', { property: 'og:url', content: 'https://leakless.themattos.dev' }],
+    ['meta', { property: 'og:image', content: OG_IMAGE }],
+    ['meta', { property: 'og:image:alt', content: 'Leakless - PHP Persistent Worker Guardian' }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:image', content: OG_IMAGE }],
+    ['meta', { name: 'twitter:image:alt', content: 'Leakless - PHP Persistent Worker Guardian' }],
+    [
+      'script',
+      { type: 'application/ld+json' },
+      JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'WebSite',
+            '@id': `${SITE_URL}/#website`,
+            url: SITE_URL,
+            name: 'Leakless',
+            description: 'Zero-State & Memory Leak Prevention for PHP Persistent Workers',
+            inLanguage: ['en-US', 'pt-BR'],
+          },
+          {
+            '@type': 'SoftwareApplication',
+            '@id': `${SITE_URL}/#software`,
+            name: 'Leakless',
+            applicationCategory: 'DeveloperApplication',
+            operatingSystem: 'Linux, macOS',
+            programmingLanguage: 'PHP',
+            url: SITE_URL,
+            author: {
+              '@type': 'Person',
+              name: 'Jonathan Gonçalves',
+              url: 'https://github.com/themattosdev',
+            },
+            license: 'https://opensource.org/licenses/MIT',
+            softwareVersion: pkg.version,
+          },
+        ],
+      }),
+    ],
   ],
+
+  transformPageData(pageData) {
+    const cleanPath = pageData.relativePath
+      .replace(/index\.md$/, '')
+      .replace(/\.md$/, '');
+    const canonicalUrl = `${SITE_URL}/${cleanPath}`.replace(/\/$/, '') || SITE_URL;
+
+    pageData.frontmatter.head ??= [];
+
+    // Canonical link
+    pageData.frontmatter.head.push(['link', { rel: 'canonical', href: canonicalUrl }]);
+
+    // OpenGraph dynamic URL
+    pageData.frontmatter.head.push(['meta', { property: 'og:url', content: canonicalUrl }]);
+
+    // i18n alternate links (hreflang)
+    const isPt = pageData.relativePath.startsWith('pt/');
+    const basePath = isPt ? cleanPath.replace(/^pt\/?/, '') : cleanPath;
+    const enUrl = `${SITE_URL}/${basePath}`.replace(/\/$/, '') || SITE_URL;
+    const ptUrl = `${SITE_URL}/pt/${basePath}`.replace(/\/$/, '');
+
+    pageData.frontmatter.head.push(['link', { rel: 'alternate', hreflang: 'en', href: enUrl }]);
+    pageData.frontmatter.head.push(['link', { rel: 'alternate', hreflang: 'pt-BR', href: ptUrl }]);
+    pageData.frontmatter.head.push(['link', { rel: 'alternate', hreflang: 'x-default', href: enUrl }]);
+  },
 
   locales: {
     root: {
       label: 'English',
-      lang: 'en',
+      lang: 'en-US',
+      description: 'Zero-State & Memory Leak Prevention for PHP Persistent Workers (FrankenPHP & Laravel Octane)',
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
@@ -80,6 +160,7 @@ export default defineConfig({
       label: 'Português',
       lang: 'pt-BR',
       link: '/pt/',
+      description: 'Prevenção de Estado e Vazamento de Memória para Workers Persistentes em PHP (FrankenPHP e Laravel Octane)',
       themeConfig: {
         nav: [
           { text: 'Guia', link: '/pt/guide/getting-started' },
