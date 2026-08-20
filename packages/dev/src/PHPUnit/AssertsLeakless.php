@@ -6,6 +6,8 @@ namespace TheMattos\Leakless\Dev\PHPUnit;
 
 use Closure;
 use PHPUnit\Framework\Assert;
+use TheMattos\Leakless\Dev\State\ObjectStateSnapshotter;
+use TheMattos\Leakless\Dev\State\StateMutation;
 use TheMattos\Leakless\Dev\Support\ClassLeakInspector;
 use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\DTOs\Report;
@@ -17,7 +19,67 @@ use TheMattos\Leakless\Leakless;
 trait AssertsLeakless
 {
     /**
-     * Asserts that a class or object has no mutable static properties or ephemeral constructor injections.
+     * Asserts that object instances or container singletons maintain clean/stateless properties across callback executions.
+     *
+     * Takes deep pre/post property snapshots of object instances to detect dynamic runtime mutations (e.g. `$this->bag[$key] = $val`).
+     * To check structural static properties or constructor injections, use `assertIsLeakless()`.
+     *
+     * @param  mixed  $target  An object, array of objects, generic PSR-11 container, or Laravel Application ($app)
+     * @param  callable|Closure  $callback  The execution payload or request simulation
+     * @param  int  $maxDepth  Maximum recursion depth for nested object inspection (default: 4)
+     */
+    public static function assertResetsContainerState(
+        mixed $target,
+        callable|Closure $callback,
+        string $message = '',
+        int $maxDepth = 4,
+    ): void {
+        $snapshotter = new ObjectStateSnapshotter;
+        $instances = $snapshotter->extractInstances($target);
+
+        if (count($instances) === 0) {
+            Assert::fail('No valid object instances or container singletons found to snapshot.');
+        }
+
+        $before = $snapshotter->snapshot($instances, maxDepth: $maxDepth);
+
+        $callback();
+
+        $after = $snapshotter->snapshot($instances, maxDepth: $maxDepth);
+        $mutations = $snapshotter->compare($instances, $before, $after);
+
+        if (count($mutations) > 0) {
+            $diffs = array_map(fn (StateMutation $m) => $m->toFormattedString(), $mutations);
+            $failureMsg = $message !== '' ? $message : sprintf(
+                "Failed asserting that container instances maintained clean state:\n%s",
+                implode("\n", $diffs),
+            );
+
+            Assert::fail($failureMsg);
+        }
+    }
+
+    /**
+     * Alias for assertResetsContainerState().
+     *
+     * @param  mixed  $target  An object, array of objects, generic PSR-11 container, or Laravel Application ($app)
+     * @param  callable|Closure  $callback  The execution payload or request simulation
+     * @param  int  $maxDepth  Maximum recursion depth for nested object inspection (default: 4)
+     */
+    public static function assertStatelessInstances(
+        mixed $target,
+        callable|Closure $callback,
+        string $message = '',
+        int $maxDepth = 4,
+    ): void {
+        self::assertResetsContainerState($target, $callback, $message, maxDepth: $maxDepth);
+    }
+
+    /**
+     * Asserts via reflection that a class or object has no mutable static properties or ephemeral constructor injections.
+     *
+     * Validates structural class design (bans mutable `static $prop` and request-scoped injections in singletons).
+     * To test runtime lifecycle and memory drift, combine with `assertRunsCleanly()`.
      *
      * @param  class-string|object  $target
      */
@@ -40,7 +102,10 @@ trait AssertsLeakless
     }
 
     /**
-     * Asserts that a closure executes with the Leakless lifecycle manager without state pollution or excessive memory drift.
+     * Asserts that a closure executes within the Leakless lifecycle manager without state pollution or excessive memory drift.
+     *
+     * Validates runtime execution (checks uncommitted PDO transactions, unclosed file descriptors, and Linux RSS memory drift).
+     * To verify structural class hygiene, combine with `assertIsLeakless()`.
      */
     public static function assertRunsCleanly(
         callable|Closure $callback,

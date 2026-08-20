@@ -1,0 +1,254 @@
+<?php
+
+declare(strict_types=1);
+
+namespace TheMattos\Leakless\Dev\State;
+
+use Closure;
+use Psr\Container\ContainerInterface;
+use ReflectionClass;
+use SplObjectStorage;
+use TheMattos\Leakless\Attributes\AllowPersistentState;
+
+final class ObjectStateSnapshotter
+{
+    public const DEFAULT_MAX_DEPTH = 4;
+
+    /**
+     * Extracts target object instances from vanilla objects, lists, or containers.
+     *
+     * @return array<int, object>
+     */
+    public function extractInstances(mixed $target): array
+    {
+        if (is_object($target) && ! ($target instanceof ContainerInterface)) {
+            return [$target];
+        }
+
+        if (is_array($target)) {
+            $instances = [];
+            foreach ($target as $item) {
+                if (is_object($item)) {
+                    $instances[] = $item;
+                }
+            }
+
+            return $instances;
+        }
+
+        if ($target instanceof ContainerInterface) {
+            return $this->extractFromContainer($target);
+        }
+
+        return [];
+    }
+
+    /**
+     * Takes a state snapshot of the given objects.
+     *
+     * @param  array<int, object>  $instances
+     * @param  int  $maxDepth  Maximum recursion depth for nested object inspection (default: 4)
+     * @return array<string, array<string, mixed>> Keyed by spl_object_hash
+     */
+    public function snapshot(array $instances, int $maxDepth = self::DEFAULT_MAX_DEPTH): array
+    {
+        $snapshot = [];
+        /** @var SplObjectStorage<object, bool> $visited */
+        $visited = new SplObjectStorage;
+
+        foreach ($instances as $instance) {
+            $id = $this->getInstanceIdentifier($instance);
+            $snapshot[$id] = $this->captureObjectState($instance, $visited, 0, $maxDepth);
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * Compares pre and post execution snapshots and detects property mutations.
+     *
+     * @param  array<int, object>  $instances
+     * @param  array<string, array<string, mixed>>  $before
+     * @param  array<string, array<string, mixed>>  $after
+     * @return array<int, StateMutation>
+     */
+    public function compare(array $instances, array $before, array $after): array
+    {
+        $mutations = [];
+
+        foreach ($instances as $instance) {
+            $id = $this->getInstanceIdentifier($instance);
+            $beforeProps = $before[$id] ?? [];
+            $afterProps = $after[$id] ?? [];
+
+            $allKeys = array_unique(array_merge(array_keys($beforeProps), array_keys($afterProps)));
+
+            foreach ($allKeys as $propKey) {
+                $valBefore = $beforeProps[$propKey] ?? null;
+                $valAfter = $afterProps[$propKey] ?? null;
+
+                if (! $this->areValuesEqual($valBefore, $valAfter)) {
+                    $mutations[] = new StateMutation(
+                        className: $instance::class,
+                        propertyName: $propKey,
+                        beforeValue: $valBefore,
+                        afterValue: $valAfter,
+                    );
+                }
+            }
+        }
+
+        return $mutations;
+    }
+
+    /**
+     * @param  SplObjectStorage<object, bool>  $visited
+     * @return array<string, mixed>
+     */
+    private function captureObjectState(object $object, SplObjectStorage $visited, int $depth, int $maxDepth): array
+    {
+        if ($depth > $maxDepth || $visited->contains($object)) {
+            return ['__recursion__' => sprintf('object(%s#%d)', $object::class, spl_object_id($object))];
+        }
+
+        $visited->attach($object, true);
+        $state = [];
+
+        $reflection = new ReflectionClass($object);
+
+        // If the entire class is annotated with #[AllowPersistentState], skip its properties
+        if (count($reflection->getAttributes(AllowPersistentState::class)) > 0) {
+            return [];
+        }
+
+        $currentClass = $reflection;
+        while ($currentClass !== false) {
+            foreach ($currentClass->getProperties() as $property) {
+                if ($property->isStatic()) {
+                    continue;
+                }
+
+                // Skip properties explicitly annotated with #[AllowPersistentState]
+                if (count($property->getAttributes(AllowPersistentState::class)) > 0) {
+                    continue;
+                }
+
+                $propName = $property->getName();
+                $propKey = $currentClass->getName() === $reflection->getName()
+                    ? $propName
+                    : $currentClass->getName().'::'.$propName;
+
+                if (! $property->isInitialized($object)) {
+                    $state[$propKey] = '__UNINITIALIZED__';
+
+                    continue;
+                }
+
+                $value = $property->getValue($object);
+                $state[$propKey] = $this->serializeValue($value, $visited, $depth + 1, $maxDepth);
+            }
+
+            $currentClass = $currentClass->getParentClass();
+        }
+
+        return $state;
+    }
+
+    /**
+     * @param  SplObjectStorage<object, bool>  $visited
+     */
+    private function serializeValue(mixed $value, SplObjectStorage $visited, int $depth, int $maxDepth): mixed
+    {
+        if ($value === null || is_scalar($value)) {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            $serialized = [];
+            foreach ($value as $k => $v) {
+                $serialized[$k] = $this->serializeValue($v, $visited, $depth, $maxDepth);
+            }
+
+            return $serialized;
+        }
+
+        if (is_object($value)) {
+            if ($value instanceof Closure) {
+                return 'Closure#'.spl_object_id($value);
+            }
+
+            // For nested complex services, capture their internal state
+            return $this->captureObjectState($value, $visited, $depth, $maxDepth);
+        }
+
+        if (is_resource($value)) {
+            return 'resource('.get_resource_type($value).')';
+        }
+
+        return gettype($value);
+    }
+
+    private function areValuesEqual(mixed $a, mixed $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+
+        if (is_array($a) && is_array($b)) {
+            return serialize($a) === serialize($b);
+        }
+
+        return false;
+    }
+
+    private function getInstanceIdentifier(object $instance): string
+    {
+        return $instance::class.'#'.spl_object_id($instance);
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    private function extractFromContainer(ContainerInterface $container): array
+    {
+        $instances = [];
+
+        // 1. Laravel Container support (Illuminate\Container\Container)
+        if (property_exists($container, 'instances')) {
+            $ref = new ReflectionClass($container);
+            if ($ref->hasProperty('instances')) {
+                $prop = $ref->getProperty('instances');
+                $rawInstances = $prop->getValue($container);
+                if (is_array($rawInstances)) {
+                    foreach ($rawInstances as $instance) {
+                        if (is_object($instance) && ! ($instance instanceof ContainerInterface)) {
+                            $instances[] = $instance;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Generic PSR-11 container inspection via common internal properties
+        if (count($instances) === 0) {
+            $ref = new ReflectionClass($container);
+            $candidateProperties = ['services', 'entries', 'resolved', 'singletons', 'values'];
+
+            foreach ($candidateProperties as $propName) {
+                if ($ref->hasProperty($propName)) {
+                    $prop = $ref->getProperty($propName);
+                    $val = $prop->getValue($container);
+                    if (is_array($val)) {
+                        foreach ($val as $item) {
+                            if (is_object($item) && ! ($item instanceof ContainerInterface)) {
+                                $instances[] = $item;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $instances;
+    }
+}
