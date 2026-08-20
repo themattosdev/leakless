@@ -59,3 +59,35 @@ test('expect toRunCleanly asserts clean execution and memory drift ceiling', fun
             $data = ['item' => 'value'];
         })->toRunCleanly(maxDriftMb: 0.25);
 });
+
+test('expect toResetContainerState and toHaveStatelessInstances pass on clean execution', function () {
+    $service = new SafeService('test');
+
+    expect([$service])->toResetContainerState(function () use ($service) {
+        $name = $service->getServiceName();
+    });
+
+    expect($service)->toHaveStatelessInstances(function () use ($service) {
+        $name = $service->getServiceName();
+    });
+});
+
+test('expect toResetContainerState fails when instance state is mutated', function () {
+    $leaky = new class
+    {
+        /** @var array<int, string> */
+        public array $items = [];
+    };
+
+    $failed = false;
+    try {
+        expect($leaky)->toResetContainerState(function () use ($leaky) {
+            $leaky->items[] = 'polluted';
+        });
+    } catch (Throwable $e) {
+        $failed = true;
+        expect($e->getMessage())->toContain('Property [');
+    }
+
+    expect($failed)->toBeTrue();
+});

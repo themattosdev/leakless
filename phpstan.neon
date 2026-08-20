@@ -9,7 +9,8 @@ parameters:
         - tests/Fixtures/*
     ignoreErrors:
         - '#Call to an undefined method Pest\\PendingCalls\\TestCall::expect\(\)#'
-        - '#Call to an undefined method Pest\\Expectation.*::(toBeLeakless|toRunCleanly)\(\)#'
+        - '#Call to an undefined method Pest\\Expectation.*::(toBeLeakless|toRunCleanly|toResetContainerState|toHaveStatelessInstances)\(\)#'
+        - '#Call to an undefined method Illuminate\\Testing\\TestResponse.*::(assertNoDanglingTransactions|assertNoMemoryDrift|assertCleanWorkerState)\(\)#'
         -
             message: '#Undefined variable: \$this#'
             path: packages/dev/src/Pest/Autoload.php

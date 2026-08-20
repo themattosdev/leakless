@@ -27,8 +27,8 @@ features:
     details: Intercepta o ciclo quando limites de memória RSS ou limites de requisições são atingidos, finalizando a requisição ativa com segurança.
   - title: Linter Estático CLI
     details: Analisador de linha de comando (vendor/bin/leakless analyze) com interface Termwind para identificar anti-patterns de workers no CI/CD.
-  - title: Expectativas Customizadas no Pest
-    details: Asserções nativas de teste com expect($service)->toBeLeakless() e expect($closure)->toRunCleanly() para garantias estritas.
+  - title: Asserções no Pest e PHPUnit
+    details: Asserções nativas de teste com expect($service)->toBeLeakless(), expect($closure)->toRunCleanly() e expect(app())->toResetContainerState().
 ---
 
 <div class="vp-doc" style="max-width: 960px; margin: 3rem auto 0 auto;">
@@ -69,11 +69,18 @@ FrankenPhp::run(
 
 ```php [Asserções Pest PHP]
 test('endpoint de pedidos executa de forma limpa sem vazamentos', function () {
+    // 1. Checagem de reflexão estrutural
     expect(PaymentGateway::class)->toBeLeakless();
 
+    // 2. Checagem de ciclo de requisição e drift de RSS
     expect(function () {
         (new ProcessInvoicesJob())->handle();
     })->toRunCleanly(maxDriftMb: 0.25);
+
+    // 3. Snapshot de mutações de estado em singletons do container
+    expect(app())->toResetContainerState(function () {
+        $this->postJson('/api/checkout', ['plan' => 'pro']);
+    });
 });
 ```
 
