@@ -199,4 +199,45 @@ final class OctaneIntegrationTest extends TestCase
             public mixed $response = null;
         });
     }
+
+    public function test_it_logs_structured_violations_via_laravel_log_facade(): void
+    {
+        /** @var Application $app */
+        $app = $this->app;
+
+        /** @var ConfigRepository $configRepo */
+        $configRepo = $app->make('config');
+        $configRepo->set('leakless.log_violations', true);
+
+        $app->forgetInstance(Config::class);
+        $app->forgetInstance(Leakless::class);
+
+        Log::shouldReceive('warning')
+            ->atLeast()
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return str_contains($message, 'Dangling database transaction')
+                    && isset($context['dangling_transactions'])
+                    && $context['dangling_transactions'] === 1
+                    && isset($context['duration_ms'])
+                    && isset($context['memory_drift_mb']);
+            });
+
+        // 1. Simulate Octane RequestReceived
+        Event::dispatch('Laravel\Octane\Events\RequestReceived', new class
+        {
+            public mixed $request = null;
+        });
+
+        // 2. Open dangling transaction
+        DB::beginTransaction();
+
+        // 3. Simulate Octane RequestTerminated
+        Event::dispatch('Laravel\Octane\Events\RequestTerminated', new class
+        {
+            public mixed $request = null;
+
+            public mixed $response = null;
+        });
+    }
 }

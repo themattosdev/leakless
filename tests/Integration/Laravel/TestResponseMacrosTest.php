@@ -58,11 +58,10 @@ final class TestResponseMacrosTest extends TestCase
             public mixed $response = null;
         });
 
-        /** @var mixed $testResponse */
+        /** @var TestResponse<JsonResponse> $testResponse */
         $testResponse = TestResponse::fromBaseResponse(new JsonResponse(['status' => 'ok']));
 
         // Assert macros execute without throwing
-        // @phpstan-ignore-next-line
         $testResponse->assertNoDanglingTransactions()
             ->assertNoMemoryDrift(0.25)
             ->assertCleanWorkerState();

@@ -64,11 +64,18 @@ LEAKLESS_CHECK_FILE_DESCRIPTORS=false
 
 ```php
 test('service executes cleanly without leaking memory or state', function () {
+    // 1. Structural design check (no mutable static props or illegal constructor injections)
     expect(PaymentService::class)->toBeLeakless();
 
+    // 2. Full request lifecycle check (PDO transactions, FDs, and Linux RSS drift)
     expect(function () {
         (new PaymentService())->processPendingTransactions();
     })->toRunCleanly(maxDriftMb: 0.25);
+
+    // 3. Deep container/instance property snapshotting (detects runtime state mutations)
+    expect(app())->toResetContainerState(function () {
+        $this->postJson('/api/checkout', ['item' => 'pro']);
+    });
 });
 ```
 
