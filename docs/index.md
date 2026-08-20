@@ -27,8 +27,8 @@ features:
     details: Intercepts requests when configured RSS memory ceilings or request limits are reached, ensuring active requests complete cleanly.
   - title: Static Worker Linter CLI
     details: Command-line analyzer (vendor/bin/leakless analyze) with Termwind terminal UI to spot persistent worker anti-patterns in CI/CD pipelines.
-  - title: Pest Custom Expectations
-    details: Native test assertions including expect($service)->toBeLeakless() and expect($closure)->toRunCleanly() for strict worker guarantees.
+  - title: Pest & PHPUnit Assertions
+    details: Native test assertions including expect($service)->toBeLeakless(), expect($closure)->toRunCleanly(), and expect(app())->toResetContainerState().
 ---
 
 <div class="vp-doc" style="max-width: 960px; margin: 3rem auto 0 auto;">
@@ -69,11 +69,18 @@ FrankenPhp::run(
 
 ```php [Pest PHP Assertions]
 test('orders endpoint executes cleanly without state or memory drift', function () {
+    // 1. Structural reflection check
     expect(PaymentGateway::class)->toBeLeakless();
 
+    // 2. Request lifecycle & Kernel RSS drift check
     expect(function () {
         (new ProcessInvoicesJob())->handle();
     })->toRunCleanly(maxDriftMb: 0.25);
+
+    // 3. Container singletons state mutation snapshot
+    expect(app())->toResetContainerState(function () {
+        $this->postJson('/api/checkout', ['plan' => 'pro']);
+    });
 });
 ```
 

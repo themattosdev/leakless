@@ -38,11 +38,38 @@ test('processamento em lote executa de forma limpa', function () {
 });
 ```
 
+### `expect($target)->toResetContainerState(callable $callback, int $maxDepth = 4)`
+*Alias: `expect($target)->toHaveStatelessInstances(callable $callback, int $maxDepth = 4)`*
+
+Captura um snapshot profundo do estado de propriedades de objetos (instâncias isoladas, arrays de objetos, containers PSR-11 ou o container `$app` do Laravel) antes e após a execução do callback para garantir que singletons de longa duração permaneçam sem retenção de estado:
+
+```php
+test('serviços não sofrem mutação de estado entre requisições', function () {
+    $globalsBag = new ViewGlobalsBag();
+    $cacheService = new MetadataCache();
+
+    expect([$globalsBag, $cacheService])->toResetContainerState(function () use ($globalsBag) {
+        $globalsBag->set('csrf_token', 'temporary-token');
+        // Falhará se o $globalsBag não for resetado ao final do ciclo!
+    });
+});
+```
+
+Você também pode passar o container da aplicação diretamente, com um limite de profundidade opcional:
+
+```php
+test('singletons do laravel mantêm propriedades stateless', function () {
+    expect(app())->toResetContainerState(function () {
+        $this->postJson('/api/checkout', ['item' => 'pro']);
+    }, maxDepth: 2); // Profundidade customizada (padrão: 4)
+});
+```
+
 ---
 
-## 2. Asserções Nativas no PHPUnit (`AssertsLeakless`)
+## 2. Asserções Nativas para PHPUnit (`AssertsLeakless`)
 
-Se o seu projeto utiliza classes `TestCase` padrão do PHPUnit em vez do Pest, utilize o trait `AssertsLeakless`:
+Se seu projeto utiliza classes de teste padrão do PHPUnit (`TestCase`) em vez do Pest, utilize a trait `AssertsLeakless`:
 
 ```php
 namespace Tests\Unit;
@@ -67,6 +94,13 @@ final class PaymentServiceTest extends TestCase
             $service->process();
         }, maxDriftMb: 0.25);
     }
+
+    public function test_container_maintains_clean_state(): void
+    {
+        $this->assertResetsContainerState($this->app, function () {
+            $this->postJson('/api/users');
+        }, maxDepth: 4);
+    }
 }
 ```
 
@@ -74,8 +108,10 @@ final class PaymentServiceTest extends TestCase
 
 | Método | Descrição |
 | :--- | :--- |
-| `$this->assertIsLeakless($target)` | Assere que uma classe/objeto não retém estado estático mutável ou injeções efêmeras. |
+| `$this->assertIsLeakless($target)` | Assere que uma classe/objeto não possui estado estático mutável ou injeções ilegais. |
 | `$this->assertRunsCleanly($callable, $config, $maxDriftMb)` | Executa um callback sob o Leakless e assere estado 100% limpo. |
+| `$this->assertResetsContainerState($target, $callback, $msg, $maxDepth)` | Captura snapshot de objetos/singletons do container para asserir ausência de mutações. |
+| `$this->assertStatelessInstances($target, $callback, $msg, $maxDepth)` | Alias para `assertResetsContainerState`. |
 | `$this->assertNoDanglingTransactions($reportOrResponse)` | Assere que nenhuma transação PDO permaneceu aberta. |
-| `$this->assertCleanWorkerState($reportOrResponse)` | Assere que o estado do worker terminou íntegro após a requisição. |
-| `$this->assertNoMemoryDrift($reportOrResponse, $maxMb)` | Assere que a variação de memória física não excedeu o teto. |
+| `$this->assertCleanWorkerState($reportOrResponse)` | Assere que o estado do worker terminou 100% limpo. |
+| `$this->assertNoMemoryDrift($reportOrResponse, $maxMb)` | Assere que o drift de memória física não ultrapassou o teto. |

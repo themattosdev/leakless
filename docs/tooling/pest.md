@@ -36,6 +36,31 @@ test('batch processing runs cleanly', function () {
         $service->generate();
     })->toRunCleanly(maxDriftMb: 0.25); // Asserts RAM growth <= 0.25MB (256KB)
 });
+### `expect($target)->toResetContainerState(callable $callback, int $maxDepth = 4)`
+*Alias: `expect($target)->toHaveStatelessInstances(callable $callback, int $maxDepth = 4)`*
+
+Deeply snapshots object instances (vanilla objects, arrays of objects, PSR-11 containers, or the Laravel `$app` container) across callback execution to assert that long-lived singletons maintain clean, immutable, or properly reset instance properties:
+
+```php
+test('services do not mutate internal state across cycles', function () {
+    $globalsBag = new ViewGlobalsBag();
+    $cacheService = new MetadataCache();
+
+    expect([$globalsBag, $cacheService])->toResetContainerState(function () use ($globalsBag) {
+        $globalsBag->set('csrf_token', 'temporary-token');
+        // Will fail if $globalsBag is not reset at the end of the cycle!
+    });
+});
+```
+
+You can also pass your application container directly, with an optional recursion depth limit:
+
+```php
+test('laravel singletons maintain stateless properties', function () {
+    expect(app())->toResetContainerState(function () {
+        $this->postJson('/api/checkout', ['item' => 'pro']);
+    }, maxDepth: 2); // Custom max depth (default: 4)
+});
 ```
 
 ---
@@ -67,6 +92,13 @@ final class PaymentServiceTest extends TestCase
             $service->process();
         }, maxDriftMb: 0.25);
     }
+
+    public function test_container_maintains_clean_state(): void
+    {
+        $this->assertResetsContainerState($this->app, function () {
+            $this->postJson('/api/users');
+        }, maxDepth: 4);
+    }
 }
 ```
 
@@ -76,6 +108,8 @@ final class PaymentServiceTest extends TestCase
 | :--- | :--- |
 | `$this->assertIsLeakless($target)` | Asserts a class/object contains no mutable static state or illegal injections. |
 | `$this->assertRunsCleanly($callable, $config, $maxDriftMb)` | Executes a callback under Leakless and asserts clean state. |
+| `$this->assertResetsContainerState($target, $callback, $msg, $maxDepth)` | Snapshots object instances or container singletons to assert clean state. |
+| `$this->assertStatelessInstances($target, $callback, $msg, $maxDepth)` | Alias for `assertResetsContainerState`. |
 | `$this->assertNoDanglingTransactions($reportOrResponse)` | Asserts no uncommitted PDO transactions remained. |
 | `$this->assertCleanWorkerState($reportOrResponse)` | Asserts the worker state is completely clean after handling. |
 | `$this->assertNoMemoryDrift($reportOrResponse, $maxMb)` | Asserts physical memory drift did not exceed threshold. |
