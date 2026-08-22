@@ -16,14 +16,72 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Real RSS Memory Ceiling (MB)
+    | Maximum Memory Drift Ceiling (MB) [Recommended]
     |--------------------------------------------------------------------------
     |
-    | The maximum real Resident Set Size (RSS) memory in megabytes measured
-    | from the Linux kernel (/proc/self/statm) before graceful recycling.
+    | The maximum allowable memory drift in megabytes above the worker's initial
+    | boot baseline (/proc/self/statm) before recycling evaluation is triggered.
     |
     */
-    'max_rss_mb' => (int) env('LEAKLESS_MAX_RSS_MB', 96),
+    'max_drift_mb' => env('LEAKLESS_MAX_DRIFT_MB') !== null ? (int) env('LEAKLESS_MAX_DRIFT_MB') : 64,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Hard Real RSS Memory Ceiling (MB) [Emergency / Optional]
+    |--------------------------------------------------------------------------
+    |
+    | Optional hard ceiling for physical Resident Set Size (RSS) memory in MB.
+    | When exceeded, triggers immediate emergency worker recycling to prevent
+    | Linux OOM Killer SIGKILL. Leave null to rely on relative drift.
+    |
+    */
+    'max_rss_mb' => env('LEAKLESS_MAX_RSS_MB') ? (int) env('LEAKLESS_MAX_RSS_MB') : null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Consecutive Violations Threshold (Hysteresis)
+    |--------------------------------------------------------------------------
+    |
+    | The number of consecutive requests that must breach the memory drift threshold
+    | after garbage collection before triggering worker recycling. This prevents
+    | recycling on transient, single-request memory spikes.
+    |
+    */
+    'consecutive_violations' => (int) env('LEAKLESS_CONSECUTIVE_VIOLATIONS', 5),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Recycling Cooldown Window (Seconds)
+    |--------------------------------------------------------------------------
+    |
+    | Minimum time interval in seconds between worker recycling triggers.
+    | Prevents "restart storms" where multiple workers recycle simultaneously
+    | during sudden bursts of concurrent traffic.
+    |
+    */
+    'recycle_cooldown' => (int) env('LEAKLESS_RECYCLE_COOLDOWN', 10),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Trigger Garbage Collection On Potential Breach
+    |--------------------------------------------------------------------------
+    |
+    | When true, gc_collect_cycles() is automatically executed when memory drift
+    | exceeds threshold, re-evaluating physical memory before confirming a violation.
+    |
+    */
+    'trigger_gc' => env('LEAKLESS_TRIGGER_GC', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Memory Drift Jitter (%)
+    |--------------------------------------------------------------------------
+    |
+    | Random percentage variation applied to max_drift_mb per worker to desynchronize
+    | recycling events across multiple workers under uniform traffic loads.
+    |
+    */
+    'drift_jitter' => (int) env('LEAKLESS_DRIFT_JITTER', 10),
 
     /*
     |--------------------------------------------------------------------------

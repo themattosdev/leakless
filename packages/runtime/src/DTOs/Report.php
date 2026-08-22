@@ -10,6 +10,8 @@ final readonly class Report
 
     public float $zendMemoryDriftMb;
 
+    public float $driftOverBaselineMb;
+
     /**
      * @param  ProcessMetrics  $initialMetrics  Metrics captured at the start of the request.
      * @param  ProcessMetrics  $finalMetrics  Metrics captured after the response is sent.
@@ -23,6 +25,9 @@ final readonly class Report
      * @param  bool  $shouldRecycle  True if the worker must be gracefully restarted.
      * @param  string|null  $recycleReason  Human-readable explanation if recycling was requested.
      * @param  array<string, mixed>  $metadata  Arbitrary context (e.g. route, method, status code).
+     * @param  float|null  $baselineRssMb  Baseline memory measured during worker initialization.
+     * @param  int  $consecutiveViolationsCount  Number of consecutive memory drift breaches detected.
+     * @param  bool  $cooldownActive  True if worker recycling was throttled due to cooldown window.
      */
     public function __construct(
         public ProcessMetrics $initialMetrics,
@@ -37,9 +42,15 @@ final readonly class Report
         public bool $shouldRecycle = false,
         public ?string $recycleReason = null,
         public array $metadata = [],
+        public ?float $baselineRssMb = null,
+        public int $consecutiveViolationsCount = 0,
+        public bool $cooldownActive = false,
     ) {
         $this->memoryDriftMb = round($this->finalMetrics->rssMb - $this->initialMetrics->rssMb, 2);
         $this->zendMemoryDriftMb = round($this->finalMetrics->zendMemoryUsageMb - $this->initialMetrics->zendMemoryUsageMb, 2);
+        $this->driftOverBaselineMb = $this->baselineRssMb !== null
+            ? round($this->finalMetrics->rssMb - $this->baselineRssMb, 2)
+            : $this->memoryDriftMb;
     }
 
     /**

@@ -12,9 +12,10 @@ Quando o pacote `themattosdev/leakless` é instalado em uma aplicação Laravel:
 
 1. **Auto-Discovery**: O sistema de descoberta de pacotes do Laravel registra automaticamente o `TheMattos\Leakless\Integrations\Laravel\LeaklessServiceProvider`.
 2. **Hooks do Ciclo de Vida**: O Leakless escuta automaticamente os eventos do Octane:
+   - `Laravel\Octane\Events\WorkerStarting` / `OctaneStarted` ➔ Captura a memória baseline inicial limpa ($M_0$) pós-boot do Laravel.
    - `Laravel\Octane\Events\RequestReceived` ➔ Captura o snapshot inicial de conexões PDO ativas e métricas do kernel Linux.
-   - `Laravel\Octane\Events\RequestTerminated` ➔ Audita transações PDO não commitadas, executa rollback automático se houver transações órfãs, restaura buffers de saída e fusos horários, e avalia os limites de memória RSS.
-3. **Reciclagem Graciosa de Workers**: Se um worker ultrapassar o teto definido em `LEAKLESS_MAX_RSS_MB`, o Leakless finaliza o worker com segurança após a entrega da resposta ativa, sinalizando ao Octane para iniciar um novo worker limpo.
+   - `Laravel\Octane\Events\RequestTerminated` ➔ Audita transações PDO não commitadas, executa rollback automático se houver transações órfãs, restaura buffers de saída e fusos horários, e avalia o drift de memória relativo.
+3. **Reciclagem Graciosa com Cooldown**: Se o drift de memória persistir por $N$ requisições consecutivas pós-GC, o Leakless finaliza o worker com segurança após a entrega da resposta ativa, respeitando a janela de cooldown para evitar tempestades de reinicialização.
 
 ---
 
@@ -32,13 +33,25 @@ O arquivo `config/leakless.php` será criado:
 return [
     'enabled' => env('LEAKLESS_ENABLED', true),
 
-    'max_rss_mb' => env('LEAKLESS_MAX_RSS_MB', 96),
+    'max_drift_mb' => env('LEAKLESS_MAX_DRIFT_MB') !== null ? (int) env('LEAKLESS_MAX_DRIFT_MB') : 64,
 
-    'max_requests' => env('LEAKLESS_MAX_REQUESTS', null),
+    'max_rss_mb' => env('LEAKLESS_MAX_RSS_MB') ? (int) env('LEAKLESS_MAX_RSS_MB') : null,
+
+    'consecutive_violations' => (int) env('LEAKLESS_CONSECUTIVE_VIOLATIONS', 5),
+
+    'recycle_cooldown' => (int) env('LEAKLESS_RECYCLE_COOLDOWN', 10),
+
+    'trigger_gc' => env('LEAKLESS_TRIGGER_GC', true),
+
+    'drift_jitter' => (int) env('LEAKLESS_DRIFT_JITTER', 10),
+
+    'max_requests' => env('LEAKLESS_MAX_REQUESTS') ? (int) env('LEAKLESS_MAX_REQUESTS') : null,
 
     'check_transactions' => env('LEAKLESS_CHECK_TRANSACTIONS', true),
 
-    'rollback_state' => env('LEAKLESS_ROLLBACK_STATE', true),
+    'check_file_descriptors' => env('LEAKLESS_CHECK_FILE_DESCRIPTORS', false),
+
+    'auto_recycle' => env('LEAKLESS_AUTO_RECYCLE', true),
 
     'log_violations' => env('LEAKLESS_LOG_VIOLATIONS', true),
 ];
@@ -49,11 +62,17 @@ return [
 | Variável | Tipo | Padrão | Descrição |
 | :--- | :---: | :---: | :--- |
 | `LEAKLESS_ENABLED` | `bool` | `true` | Ativa ou desativa a auditoria do Leakless. |
-| `LEAKLESS_MAX_RSS_MB` | `int\|float` | `256` | Teto de memória RSS real do Linux (em MB) antes de reciclar. |
+| `LEAKLESS_MAX_DRIFT_MB` | `int\|null` | `64` | Crescimento relativo de RSS (MB) permitido acima do baseline. |
+| `LEAKLESS_MAX_RSS_MB` | `int\|null` | `null` | Teto físico de emergência absoluto em MB (opcional). |
+| `LEAKLESS_CONSECUTIVE_VIOLATIONS` | `int` | `5` | Violações pós-GC consecutivas necessárias para confirmar reciclagem. |
+| `LEAKLESS_RECYCLE_COOLDOWN` | `int` | `10` | Intervalo mínimo em segundos entre reciclagens por worker. |
+| `LEAKLESS_TRIGGER_GC` | `bool` | `true` | Executa `gc_collect_cycles()` em caso de suspeita de estouro. |
+| `LEAKLESS_DRIFT_JITTER` | `int` | `10` | Percentual de variação para desincronizar reinicializações entre workers. |
 | `LEAKLESS_MAX_REQUESTS` | `int\|null` | `null` | Limite de requisições por worker antes da reciclagem. |
 | `LEAKLESS_CHECK_TRANSACTIONS` | `bool` | `true` | Detecta e executa rollback automático em transações PDO abertas. |
-| `LEAKLESS_ROLLBACK_STATE` | `bool` | `true` | Restaura fusos horários, buffers de saída e níveis de erro. |
-| `LEAKLESS_LOG_VIOLATIONS` | `bool` | `true` | Registra logs detalhados quando anomalias são interceptadas. |
+| `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `bool` | `false` | Inspeciona `/proc/self/fd` para detectar arquivos e sockets esquecidos abertos. |
+| `LEAKLESS_AUTO_RECYCLE` | `bool` | `true` | Sinaliza parada graciosa do worker ao Octane em caso de violação confirmada. |
+| `LEAKLESS_LOG_VIOLATIONS` | `bool` | `true` | Registra logs detalhados quando anomalias ou vazamentos são interceptados. |
 
 ---
 

@@ -47,7 +47,7 @@ FrankenPHP::run(
     app: function () {
         echo json_encode(['status' => 'ok']);
     },
-    config: new Config(maxRssMb: 96, maxRequests: 1000),
+    config: new Config(maxDriftMb: 64, maxRequests: 1000),
 );
 ```
 
@@ -55,7 +55,7 @@ FrankenPHP::run(
 
 ```env
 LEAKLESS_ENABLED=true
-LEAKLESS_MAX_RSS_MB=96
+LEAKLESS_MAX_DRIFT_MB=64
 LEAKLESS_CHECK_TRANSACTIONS=true
 LEAKLESS_CHECK_FILE_DESCRIPTORS=false
 ```

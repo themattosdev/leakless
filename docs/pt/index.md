@@ -49,7 +49,7 @@ composer require --dev themattosdev/leakless-dev
 ::: code-group
 ```ini [Laravel Octane (.env)]
 LEAKLESS_ENABLED=true
-LEAKLESS_MAX_RSS_MB=96
+LEAKLESS_MAX_DRIFT_MB=64
 LEAKLESS_CHECK_TRANSACTIONS=true
 LEAKLESS_CHECK_FILE_DESCRIPTORS=false
 ```
@@ -61,7 +61,7 @@ use TheMattos\Leakless\Integrations\FrankenPhp\FrankenPhp;
 FrankenPhp::run(
     app: fn () => print(json_encode(['status' => 'ok'])),
     config: new Config(
-        maxRssMb: 96,
+        maxDriftMb: 64,
         checkTransactions: true,
     ),
 );

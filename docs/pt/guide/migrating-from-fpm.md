@@ -45,7 +45,7 @@ Configure o `.env` para auditar e registrar violações:
 ```ini
 LEAKLESS_ENABLED=true
 LEAKLESS_LOG_VIOLATIONS=true
-LEAKLESS_MAX_RSS_MB=256
+LEAKLESS_MAX_DRIFT_MB=64
 LEAKLESS_MAX_REQUESTS=1000
 ```
 

@@ -53,10 +53,10 @@ final class ObjectStateSnapshotter
     public function snapshot(array $instances, int $maxDepth = self::DEFAULT_MAX_DEPTH): array
     {
         $snapshot = [];
-        /** @var SplObjectStorage<object, bool> $visited */
-        $visited = new SplObjectStorage;
 
         foreach ($instances as $instance) {
+            /** @var SplObjectStorage<object, bool> $visited */
+            $visited = new SplObjectStorage;
             $id = $this->getInstanceIdentifier($instance);
             $snapshot[$id] = $this->captureObjectState($instance, $visited, 0, $maxDepth);
         }
@@ -175,6 +175,10 @@ final class ObjectStateSnapshotter
         if (is_object($value)) {
             if ($value instanceof Closure) {
                 return 'Closure#'.spl_object_id($value);
+            }
+
+            if ($value instanceof ContainerInterface) {
+                return sprintf('container(%s#%d)', $value::class, spl_object_id($value));
             }
 
             // For nested complex services, capture their internal state
