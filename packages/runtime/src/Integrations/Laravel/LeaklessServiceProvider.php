@@ -13,6 +13,7 @@ use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\DTOs\Report;
 use TheMattos\Leakless\Integrations\Laravel\Listeners\OctaneReceivedListener;
 use TheMattos\Leakless\Integrations\Laravel\Listeners\OctaneTerminatedListener;
+use TheMattos\Leakless\Integrations\Laravel\Listeners\OctaneWorkerStartingListener;
 use TheMattos\Leakless\Leakless;
 
 final class LeaklessServiceProvider extends ServiceProvider
@@ -29,11 +30,16 @@ final class LeaklessServiceProvider extends ServiceProvider
             $configRepository = $app->make('config');
             /** @var array{
              *     enabled?: bool,
-             *     max_rss_mb?: int,
+             *     max_drift_mb?: int|null,
+             *     max_rss_mb?: int|null,
              *     check_transactions?: bool,
              *     check_file_descriptors?: bool,
              *     auto_recycle?: bool,
              *     max_requests?: int|null,
+             *     consecutive_violations?: int,
+             *     recycle_cooldown?: int,
+             *     trigger_gc?: bool,
+             *     drift_jitter?: int,
              *     log_violations?: bool
              * } $cfg */
             $cfg = (array) $configRepository->get('leakless', []);
@@ -45,6 +51,10 @@ final class LeaklessServiceProvider extends ServiceProvider
                     $log->warning($message, [
                         'duration_ms' => $report->durationMs,
                         'memory_drift_mb' => $report->memoryDriftMb,
+                        'baseline_rss_mb' => $report->baselineRssMb,
+                        'drift_over_baseline_mb' => $report->driftOverBaselineMb,
+                        'consecutive_violations' => $report->consecutiveViolationsCount,
+                        'cooldown_active' => $report->cooldownActive,
                         'dangling_transactions' => $report->danglingTransactionsCount,
                         'should_recycle' => $report->shouldRecycle,
                         'recycle_reason' => $report->recycleReason,
@@ -54,12 +64,29 @@ final class LeaklessServiceProvider extends ServiceProvider
                 }
             };
 
+            $maxDrift = array_key_exists('max_drift_mb', $cfg)
+                ? ($cfg['max_drift_mb'] !== null ? (int) $cfg['max_drift_mb'] : null)
+                : 64;
+
+            $maxRss = isset($cfg['max_rss_mb'])
+                ? (int) $cfg['max_rss_mb']
+                : null;
+
+            $maxRequests = isset($cfg['max_requests'])
+                ? (int) $cfg['max_requests']
+                : null;
+
             return new Config(
-                maxRssMb: (int) ($cfg['max_rss_mb'] ?? 96),
+                maxDriftMb: $maxDrift,
+                maxRssMb: $maxRss,
                 checkTransactions: (bool) ($cfg['check_transactions'] ?? true),
                 checkFileDescriptors: (bool) ($cfg['check_file_descriptors'] ?? false),
                 autoRecycleOnViolation: (bool) ($cfg['auto_recycle'] ?? true),
-                maxRequests: isset($cfg['max_requests']) ? (int) $cfg['max_requests'] : null,
+                maxRequests: $maxRequests,
+                consecutiveViolationsThreshold: (int) ($cfg['consecutive_violations'] ?? 5),
+                recycleCooldownSeconds: (int) ($cfg['recycle_cooldown'] ?? 10),
+                triggerGcOnBreach: (bool) ($cfg['trigger_gc'] ?? true),
+                driftJitterPercentage: (int) ($cfg['drift_jitter'] ?? 10),
                 logViolations: (bool) ($cfg['log_violations'] ?? true),
                 logger: $logger,
             );
@@ -104,6 +131,10 @@ final class LeaklessServiceProvider extends ServiceProvider
 
         /** @var Dispatcher $events */
         $events = $this->app->make('events');
+
+        // Listen for Octane WorkerStarting event to capture clean baseline memory
+        $events->listen('Laravel\Octane\Events\WorkerStarting', OctaneWorkerStartingListener::class);
+        $events->listen('Laravel\Octane\Events\OctaneStarted', OctaneWorkerStartingListener::class);
 
         // Listen for Octane RequestReceived event if Octane is present
         $events->listen('Laravel\Octane\Events\RequestReceived', OctaneReceivedListener::class);

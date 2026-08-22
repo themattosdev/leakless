@@ -62,8 +62,28 @@ final class OctaneIntegrationTest extends TestCase
         $this->assertInstanceOf(Leakless::class, $leakless);
         $this->assertInstanceOf(Config::class, $config);
         $this->assertSame(96, $config->maxRssMb);
+        $this->assertSame(64, $config->maxDriftMb);
+        $this->assertTrue($config->checkTransactions);
         $this->assertTrue($config->checkFileDescriptors);
+        $this->assertTrue($config->autoRecycleOnViolation);
+        $this->assertSame(5, $config->consecutiveViolationsThreshold);
+        $this->assertSame(10, $config->recycleCooldownSeconds);
+        $this->assertTrue($config->triggerGcOnBreach);
+        $this->assertSame(10, $config->driftJitterPercentage);
         $this->assertSame($leakless, $app->make('leakless'));
+    }
+
+    public function test_it_captures_baseline_on_octane_worker_starting_event(): void
+    {
+        /** @var Application $app */
+        $app = $this->app;
+
+        /** @var Leakless $leakless */
+        $leakless = $app->make(Leakless::class);
+
+        Event::dispatch('Laravel\Octane\Events\WorkerStarting', new class {});
+
+        $this->assertNotNull($leakless->getBaselineMetrics());
     }
 
     public function test_it_listens_to_octane_lifecycle_and_rolls_back_dangling_transactions(): void
