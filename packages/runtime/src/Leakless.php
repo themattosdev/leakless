@@ -26,6 +26,10 @@ final class Leakless
 
     private readonly StateRollback $stateRollback;
 
+    private ?ProcessMetrics $baselineMetrics = null;
+
+    private ?float $effectiveDriftLimitMb = null;
+
     private ?ProcessMetrics $initialMetrics = null;
 
     /**
@@ -36,6 +40,10 @@ final class Leakless
     private ?float $requestStartTime = null;
 
     private int $requestCount = 0;
+
+    private int $consecutiveViolations = 0;
+
+    private ?float $lastRecycleTimestamp = null;
 
     private ?Report $lastReport = null;
 
@@ -66,6 +74,8 @@ final class Leakless
         $this->fileDescriptorGuard = $fileDescriptorGuard ?? new FileDescriptorGuard;
         $this->stateRollback = $stateRollback ?? new StateRollback;
         $this->recycler = $recycler;
+
+        $this->calculateEffectiveDriftLimit();
     }
 
     /**
@@ -77,6 +87,10 @@ final class Leakless
         $this->requestStartTime = microtime(true);
         $this->initialMetrics = $this->statmParser->parse();
         $this->stateRollback->captureInitialState();
+
+        if ($this->baselineMetrics === null) {
+            $this->baselineMetrics = $this->initialMetrics;
+        }
 
         if ($this->config->checkFileDescriptors) {
             $this->initialDescriptors = $this->fileDescriptorGuard->captureOpenDescriptors();
@@ -111,20 +125,60 @@ final class Leakless
         // 4. Capture post-request process metrics
         $finalMetrics = $this->statmParser->parse();
         $initialMetrics = $this->initialMetrics ?? $finalMetrics;
+        $this->baselineMetrics ??= $initialMetrics;
+        $baselineRssMb = $this->baselineMetrics->rssMb;
 
-        // 5. Evaluate whether worker should be gracefully recycled
+        // 5. Check memory thresholds (Relative Soft Drift vs. Emergency Hard Ceiling)
+        $driftLimit = $this->effectiveDriftLimitMb ?? (float) ($this->config->maxDriftMb ?? 64);
+        $currentDriftMb = round($finalMetrics->rssMb - $baselineRssMb, 2);
+
+        $softDriftBreached = $this->config->maxDriftMb !== null && $currentDriftMb > $driftLimit;
+        $hardCeilingBreached = $this->config->maxRssMb !== null && $finalMetrics->rssMb > $this->config->maxRssMb;
+
+        // 6. If threshold breached, trigger gc_collect_cycles() and re-evaluate physical memory
+        if (($softDriftBreached || $hardCeilingBreached) && $this->config->triggerGcOnBreach) {
+            gc_collect_cycles();
+            $finalMetrics = $this->statmParser->parse();
+            $currentDriftMb = round($finalMetrics->rssMb - $baselineRssMb, 2);
+            $softDriftBreached = $this->config->maxDriftMb !== null && $currentDriftMb > $driftLimit;
+            $hardCeilingBreached = $this->config->maxRssMb !== null && $finalMetrics->rssMb > $this->config->maxRssMb;
+        }
+
+        // 7. Track consecutive violations for hysteresis
+        if ($softDriftBreached) {
+            $this->consecutiveViolations++;
+        } else {
+            $this->consecutiveViolations = 0;
+        }
+
+        // 8. Evaluate whether worker should be recycled
         $shouldRecycle = false;
         $recycleReason = null;
+        $cooldownActive = false;
+        $now = microtime(true);
 
-        if ($finalMetrics->rssMb > $this->config->maxRssMb) {
+        if ($hardCeilingBreached) {
             $shouldRecycle = true;
-            $recycleReason = "RSS memory limit exceeded: {$finalMetrics->rssMb}MB > {$this->config->maxRssMb}MB";
+            $recycleReason = "Emergency RSS memory ceiling exceeded: {$finalMetrics->rssMb}MB > {$this->config->maxRssMb}MB";
+        } elseif ($this->config->maxDriftMb !== null && $this->consecutiveViolations >= $this->config->consecutiveViolationsThreshold) {
+            if ($this->lastRecycleTimestamp !== null && ($now - $this->lastRecycleTimestamp) < $this->config->recycleCooldownSeconds) {
+                $cooldownActive = true;
+                $recycleReason = "Memory drift exceeded limit ({$currentDriftMb}MB > {$driftLimit}MB across {$this->consecutiveViolations} consecutive requests), but recycling is throttled by cooldown window ({$this->config->recycleCooldownSeconds}s).";
+            } else {
+                $shouldRecycle = true;
+                $recycleReason = "Memory drift limit exceeded: {$currentDriftMb}MB > {$driftLimit}MB persistently across {$this->consecutiveViolations} consecutive requests";
+            }
         } elseif ($this->config->maxRequests !== null && $this->requestCount >= $this->config->maxRequests) {
             $shouldRecycle = true;
             $recycleReason = "Max requests ceiling reached: {$this->requestCount}/{$this->config->maxRequests}";
         }
 
-        // 6. Build Report DTO
+        if ($shouldRecycle) {
+            $this->lastRecycleTimestamp = $now;
+            $this->consecutiveViolations = 0;
+        }
+
+        // 9. Build Report DTO
         $report = new Report(
             initialMetrics: $initialMetrics,
             finalMetrics: $finalMetrics,
@@ -137,26 +191,84 @@ final class Leakless
             shouldRecycle: $shouldRecycle,
             recycleReason: $recycleReason,
             metadata: $metadata,
+            baselineRssMb: $baselineRssMb,
+            consecutiveViolationsCount: $this->consecutiveViolations,
+            cooldownActive: $cooldownActive,
         );
 
         $this->lastReport = $report;
 
-        // 7. Log anomalies / violations automatically (Zero-Config Logging)
+        // 10. Log anomalies / violations automatically (Zero-Config Logging)
         if ($this->config->logViolations && ! $report->isClean()) {
             $this->logViolation($report);
         }
 
-        // 8. Trigger telemetry callback if configured
+        // 11. Trigger telemetry callback if configured
         if ($this->config->onReport !== null) {
             ($this->config->onReport)($report);
         }
 
-        // 9. Trigger graceful recycling if required
+        // 12. Trigger graceful recycling if required
         if ($shouldRecycle && $this->config->autoRecycleOnViolation) {
             $this->triggerRecycle($report);
         }
 
         return $report;
+    }
+
+    /**
+     * Capture the current process memory as the initial worker baseline.
+     */
+    public function captureBaselineMetrics(): ProcessMetrics
+    {
+        $metrics = $this->statmParser->parse();
+        $this->baselineMetrics = $metrics;
+        $this->calculateEffectiveDriftLimit();
+
+        return $metrics;
+    }
+
+    /**
+     * Explicitly set or update the baseline metrics for the worker.
+     */
+    public function setBaselineMetrics(?ProcessMetrics $metrics): self
+    {
+        $this->baselineMetrics = $metrics;
+        $this->calculateEffectiveDriftLimit();
+
+        return $this;
+    }
+
+    public function getBaselineMetrics(): ?ProcessMetrics
+    {
+        return $this->baselineMetrics;
+    }
+
+    public function getEffectiveDriftLimitMb(): ?float
+    {
+        return $this->effectiveDriftLimitMb;
+    }
+
+    public function getConsecutiveViolations(): int
+    {
+        return $this->consecutiveViolations;
+    }
+
+    public function resetConsecutiveViolations(): void
+    {
+        $this->consecutiveViolations = 0;
+    }
+
+    public function getLastRecycleTimestamp(): ?float
+    {
+        return $this->lastRecycleTimestamp;
+    }
+
+    public function setLastRecycleTimestamp(?float $timestamp): self
+    {
+        $this->lastRecycleTimestamp = $timestamp;
+
+        return $this;
     }
 
     /**
@@ -204,6 +316,27 @@ final class Leakless
         $this->requestCount = 0;
     }
 
+    private function calculateEffectiveDriftLimit(): void
+    {
+        if ($this->config->maxDriftMb === null) {
+            $this->effectiveDriftLimitMb = null;
+
+            return;
+        }
+
+        $baseLimit = (float) $this->config->maxDriftMb;
+
+        if ($this->config->driftJitterPercentage > 0) {
+            $maxJitter = (int) round($baseLimit * ($this->config->driftJitterPercentage / 100));
+            if ($maxJitter > 0) {
+                $jitter = mt_rand(-$maxJitter, $maxJitter);
+                $baseLimit = max(1.0, $baseLimit + $jitter);
+            }
+        }
+
+        $this->effectiveDriftLimitMb = round($baseLimit, 2);
+    }
+
     private function logViolation(Report $report): void
     {
         $messages = [];
@@ -217,7 +350,9 @@ final class Leakless
             $messages[] = "[Leakless] 🚨 Lingering file descriptor(s) detected ({$report->fileDescriptorsLeakedCount} descriptor(s)): {$details}";
         }
 
-        if ($report->shouldRecycle && $report->recycleReason !== null) {
+        if ($report->cooldownActive && $report->recycleReason !== null) {
+            $messages[] = "[Leakless] ⏳ {$report->recycleReason}";
+        } elseif ($report->shouldRecycle && $report->recycleReason !== null) {
             $messages[] = "[Leakless] ⚠️ Worker recycling triggered. Reason: {$report->recycleReason}";
         }
 

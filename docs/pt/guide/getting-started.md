@@ -46,7 +46,7 @@ Se você utiliza o Laravel Octane, o Leakless não requer **nenhuma alteração 
 
 ```ini
 LEAKLESS_ENABLED=true
-LEAKLESS_MAX_RSS_MB=96
+LEAKLESS_MAX_DRIFT_MB=64
 LEAKLESS_MAX_REQUESTS=1000
 LEAKLESS_CHECK_TRANSACTIONS=true
 LEAKLESS_LOG_VIOLATIONS=true
@@ -71,7 +71,7 @@ use TheMattos\Leakless\Integrations\FrankenPhp\FrankenPhp;
 require_once __DIR__ . '/vendor/autoload.php';
 
 $config = new Config(
-    maxRssMb: 96,
+    maxDriftMb: 64,
     maxRequests: 1000,
     checkTransactions: true,
     logViolations: true,

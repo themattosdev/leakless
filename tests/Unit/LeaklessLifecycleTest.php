@@ -107,7 +107,7 @@ test('it triggers recycling when RSS threshold is breached', function () {
 
     expect($report->shouldRecycle)->toBeTrue()
         ->and($recycled)->toBeTrue()
-        ->and($recycleReason)->toContain('RSS memory limit exceeded: 150MB > 96MB');
+        ->and($recycleReason)->toContain('150MB > 96MB');
 
     @unlink($fakeStatm);
 });

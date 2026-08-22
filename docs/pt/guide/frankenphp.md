@@ -13,17 +13,18 @@ Crie o arquivo de entrada do worker (por exemplo, `worker.php`):
 
 declare(strict_types=1);
 
-use TheMattos\Leakless\Config;
+use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\Integrations\FrankenPhp\FrankenPhp;
 
 require_once __DIR__ . '/vendor/autoload.php';
 
 // 1. Configurar limites e políticas de proteção
 $config = new Config(
-    maxRssMb: 96.0,
+    maxDriftMb: 64,
+    consecutiveViolationsThreshold: 5,
+    recycleCooldownSeconds: 10,
     maxRequests: 1000,
     checkTransactions: true,
-    rollbackState: true,
     logViolations: true,
 );
 
@@ -50,8 +51,8 @@ Internamente, o `FrankenPhp::run()` orquestra o ciclo de vida de execução pers
 3. **Encapsulamento Automático**:
    - Invoca `$leakless->startRequest()` antes da execução do seu handler.
    - Executa o handler da aplicação dentro de um bloco protegido `try / finally`.
-   - Executa `$leakless->endRequest()` no bloco `finally` para garantir auditoria de transações PDO, restauração de buffers/fuso horário e validação do teto de RAM.
-4. **Encerramento Gracioso**: Se o teto de memória RSS ou o limite de requisições for atingido, o `FrankenPhp::run()` sai do loop com segurança, permitindo que o gerenciador de processos do FrankenPHP inicie um worker novo e limpo.
+   - Executa `$leakless->endRequest()` no bloco `finally` para garantir auditoria de transações PDO, restauração de buffers/fuso horário e avaliação de drift relativo de memória.
+4. **Encerramento Gracioso**: Se o drift persistir, o teto de emergência ou o limite de requisições for atingido, o `FrankenPhp::run()` sai do loop com segurança, permitindo que o gerenciador de processos do FrankenPHP inicie um worker novo e limpo.
 
 ---
 
@@ -61,9 +62,9 @@ Se você estiver construindo seu próprio loop de eventos ou micro-framework, po
 
 ```php
 use TheMattos\Leakless\Leakless;
-use TheMattos\Leakless\Config;
+use TheMattos\Leakless\DTOs\Config;
 
-$leakless = new Leakless(new Config(maxRssMb: 256.0));
+$leakless = new Leakless(new Config(maxDriftMb: 64));
 
 while ($request = $server->accept()) {
     $leakless->startRequest();
