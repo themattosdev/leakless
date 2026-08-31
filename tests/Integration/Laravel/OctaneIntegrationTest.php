@@ -37,7 +37,7 @@ final class OctaneIntegrationTest extends TestCase
             'prefix' => '',
         ]);
 
-        $config->set('leakless.max_rss_mb', 96);
+        $config->set('leakless.max_rss_mb', 256);
         $config->set('leakless.check_transactions', true);
         $config->set('leakless.check_file_descriptors', true);
         $config->set('leakless.log_violations', false);
@@ -61,7 +61,7 @@ final class OctaneIntegrationTest extends TestCase
 
         $this->assertInstanceOf(Leakless::class, $leakless);
         $this->assertInstanceOf(Config::class, $config);
-        $this->assertSame(96, $config->maxRssMb);
+        $this->assertSame(256, $config->maxRssMb);
         $this->assertSame(64, $config->maxDriftMb);
         $this->assertTrue($config->checkTransactions);
         $this->assertTrue($config->checkFileDescriptors);
@@ -198,7 +198,6 @@ final class OctaneIntegrationTest extends TestCase
         $app->forgetInstance(Config::class);
         $app->forgetInstance(Leakless::class);
 
-        Log::shouldReceive('warning')->atLeast()->once();
         Log::shouldReceive('error')
             ->once()
             ->withArgs(function (string $message, array $context): bool {

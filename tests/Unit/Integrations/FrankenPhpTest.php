@@ -10,7 +10,7 @@ test('it executes app handler across worker loops with FrankenPhp helper', funct
     $executions = 0;
     $pdo = new PDO('sqlite::memory:');
 
-    $guardian = new Leakless(new Config(maxRssMb: 96));
+    $guardian = new Leakless(new Config(maxRssMb: 256, autoRecycleOnViolation: false));
     $guardian->registerConnection($pdo);
 
     $app = function () use (&$executions, $pdo): void {

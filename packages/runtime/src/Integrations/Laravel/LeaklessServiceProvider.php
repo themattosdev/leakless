@@ -95,6 +95,9 @@ final class LeaklessServiceProvider extends ServiceProvider
         $this->app->singleton(Leakless::class, function (Application $app): Leakless {
             return new Leakless(
                 config: $app->make(Config::class),
+                recycler: function (Report $report): void {
+                    // Recycling lifecycle in Laravel is managed via OctaneTerminatedListener
+                },
             );
         });
 
