@@ -102,8 +102,6 @@ final class InteractsWithLeaklessTest extends TestCase
         $this->assertIsLeakless($nonExistent);
     }
 
-
-
     public function test_it_fails_when_container_target_has_no_instances(): void
     {
         $this->expectException(AssertionFailedError::class);
@@ -124,4 +122,3 @@ final class InteractsWithLeaklessTest extends TestCase
         });
     }
 }
-

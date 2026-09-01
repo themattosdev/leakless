@@ -339,5 +339,3 @@ final class OctaneIntegrationTest extends TestCase
         $this->assertSame(256, $config->maxRssMb);
     }
 }
-
-

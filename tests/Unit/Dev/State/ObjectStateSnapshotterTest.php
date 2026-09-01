@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Psr\Container\ContainerInterface;
 use TheMattos\Leakless\Attributes\AllowPersistentState;
 use TheMattos\Leakless\Dev\State\ObjectStateSnapshotter;
 
@@ -188,7 +189,7 @@ test('it respects custom maxDepth parameter during object inspection', function 
 });
 
 test('it extracts instances from generic psr-11 container', function () {
-    $container = new class implements \Psr\Container\ContainerInterface
+    $container = new class implements ContainerInterface
     {
         /** @var array<int, object> */
         public array $services = [];
@@ -200,7 +201,6 @@ test('it extracts instances from generic psr-11 container', function () {
         {
             return $this->services[$id] ?? null;
         }
-
 
         public function has(string $id): bool
         {
@@ -219,7 +219,7 @@ test('it extracts instances from generic psr-11 container', function () {
 });
 
 test('it serializes closures, nested containers, and resources safely', function () {
-    $container = new class implements \Psr\Container\ContainerInterface
+    $container = new class implements ContainerInterface
     {
         public function get(string $id): mixed
         {
@@ -239,7 +239,7 @@ test('it serializes closures, nested containers, and resources safely', function
         public Closure $callback;
 
         public function __construct(
-            public \Psr\Container\ContainerInterface $container,
+            public ContainerInterface $container,
             public mixed $resource,
         ) {
             $this->callback = fn () => true;
@@ -256,4 +256,3 @@ test('it serializes closures, nested containers, and resources safely', function
         fclose($fp);
     }
 });
-

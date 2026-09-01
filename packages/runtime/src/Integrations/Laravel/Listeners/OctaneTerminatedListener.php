@@ -71,7 +71,6 @@ final class OctaneTerminatedListener
         return $pdos;
     }
 
-
     private function extractConnectionPdo(Connection $connection): ?PDO
     {
         try {
@@ -122,7 +121,6 @@ final class OctaneTerminatedListener
         }
     }
 
-
     /**
      * Notify Laravel Octane to gracefully stop the current worker and spawn a fresh replacement.
      */
@@ -161,4 +159,3 @@ final class OctaneTerminatedListener
         }
     }
 }
-

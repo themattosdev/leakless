@@ -85,7 +85,6 @@ test('it captures exceptions during rollback gracefully', function () {
     $guard = new TransactionGuard;
     $guard->registerConnection($mockPdo);
 
-
     $result = $guard->auditAndRollback();
 
     expect($result['detected'])->toBeFalse()
@@ -93,4 +92,3 @@ test('it captures exceptions during rollback gracefully', function () {
         ->and($result['errors'])->toHaveCount(1)
         ->and($result['errors'][0])->toBe('Connection dropped');
 });
-

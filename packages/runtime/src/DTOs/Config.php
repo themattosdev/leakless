@@ -73,4 +73,3 @@ final readonly class Config
         }
     }
 }
-

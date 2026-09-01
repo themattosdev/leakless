@@ -151,7 +151,6 @@ final class Leakless
         }
     }
 
-
     /**
      * @param  array<int, PDO>  $additionalConnections
      * @return array{0: array{detected: bool, rolledBackCount: int, errors: array<int, string>}, 1: array{detected: bool, leakedCount: int, leakedDescriptors: array<int, string>}}
@@ -267,8 +266,6 @@ final class Leakless
         $this->lastRecycleTimestamp = $now;
         $this->consecutiveViolations = 0;
     }
-
-
 
     /**
      * Capture the current process memory as the initial worker baseline.
@@ -440,8 +437,6 @@ final class Leakless
 
         return null;
     }
-
-
 
     private function triggerRecycle(Report $report): void
     {

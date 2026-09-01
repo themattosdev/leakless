@@ -97,7 +97,6 @@ test('it handles mock proc directory with non links and special entries', functi
     @rmdir($tmpDir);
 });
 
-
 test('leakless lifecycle records file descriptor leaks in report', function () {
     $config = new Config(
         checkFileDescriptors: true,

@@ -49,4 +49,3 @@ test('it handles non existent statm path gracefully', function () {
     $metrics = $parser->parse();
     expect($metrics->rssBytes)->toBeGreaterThan(0);
 });
-

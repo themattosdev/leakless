@@ -29,4 +29,3 @@ class EphemeralUntypedParam
 {
     public function __construct($untyped) {}
 }
-

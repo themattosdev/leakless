@@ -7,6 +7,7 @@ namespace TheMattos\Leakless\Dev\PHPStan\Rules;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\ClassMethod;
 use PHPStan\Analyser\Scope;
+use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
@@ -63,7 +64,7 @@ final class BanEphemeralInjectionInSingletonsRule implements Rule
             || str_ends_with($className, 'Test');
     }
 
-    private function inspectParam(Node\Param $param, string $className): ?\PHPStan\Rules\IdentifierRuleError
+    private function inspectParam(Node\Param $param, string $className): ?IdentifierRuleError
     {
         if ($param->type === null) {
             return null;
@@ -101,4 +102,3 @@ final class BanEphemeralInjectionInSingletonsRule implements Rule
             || str_ends_with($ephemeralClass, '\\'.$typeString);
     }
 }
-

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Dev\Console;
 
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\ApplicationTester;
 use Symfony\Component\Console\Tester\CommandTester;
 use TheMattos\Leakless\Dev\Console\Application;
 use TheMattos\Leakless\Dev\Console\Commands\AnalyzeCommand;
@@ -120,7 +121,7 @@ test('application boots with default version and analyze command', function () {
     $app = new Application;
     $app->setAutoExit(false);
 
-    $tester = new \Symfony\Component\Console\Tester\ApplicationTester($app);
+    $tester = new ApplicationTester($app);
     $exitCode = $tester->run(['--help' => true]);
 
     expect($app->getName())->toBe('Leakless')
@@ -148,5 +149,3 @@ test('it executes analyze command with default paths when none provided', functi
 
     expect($exitCode)->toBe(Command::SUCCESS);
 });
-
-

@@ -55,7 +55,6 @@ final class ProcStatmParser
         return [(int) $parts[0], (int) $parts[1], (int) $parts[2]];
     }
 
-
     /**
      * Check if /proc/self/statm is accessible in the current OS environment.
      */

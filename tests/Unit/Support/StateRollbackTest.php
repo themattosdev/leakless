@@ -65,4 +65,3 @@ test('it restores working directory when changed during request', function () {
 
     expect(getcwd())->toBe($initialDir);
 });
-

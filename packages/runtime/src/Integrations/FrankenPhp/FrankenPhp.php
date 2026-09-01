@@ -65,7 +65,6 @@ final class FrankenPhp
         return $shouldBreak;
     }
 
-
     /**
      * @param  (Closure(): mixed)  $app
      * @param  (Closure(Closure): bool)|null  $requestHandlerRunner
@@ -85,4 +84,3 @@ final class FrankenPhp
         return true;
     }
 }
-

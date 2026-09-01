@@ -29,9 +29,6 @@ class InspectorNoConstructorService
 
 class InspectorUntypedService
 {
-    /**
-     * @param mixed $untypedParam
-     */
     public function __construct(public mixed $untypedParam = null) {}
 }
 
@@ -39,7 +36,6 @@ class InspectorUnionService
 {
     public function __construct(public string|int $unionParam = '') {}
 }
-
 
 class InspectorPropertyAllowedService
 {
@@ -64,7 +60,6 @@ class InspectorLeakyService
         public Request $request,
     ) {}
 }
-
 
 test('it inspects classes and reports violations accurately', function () {
     $inspector = new ClassLeakInspector;

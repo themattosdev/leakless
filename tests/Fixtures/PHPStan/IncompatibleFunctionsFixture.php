@@ -21,4 +21,3 @@ class IncompatibleFunctionsFixture
         imap_open('{localhost:993/imap/ssl}INBOX', 'user', 'pass');
     }
 }
-

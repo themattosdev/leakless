@@ -69,4 +69,3 @@ test('it executes app via direct invocation fallback or native frankenphp handle
     expect($executed)->toBeGreaterThanOrEqual(1)
         ->and($guardian->getRequestCount())->toBeGreaterThanOrEqual(1);
 });
-

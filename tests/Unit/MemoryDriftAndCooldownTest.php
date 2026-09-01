@@ -178,7 +178,6 @@ test('it respects recycling cooldown window and prevents restart storms', functi
         ->and($r2->recycleReason)->toContain('cooldown window (30s)')
         ->and($logged)->toContain('[Leakless] ⏳ '.$r2->recycleReason);
 
-
     // Simulate passage of 31 seconds
     $guardian->setLastRecycleTimestamp(microtime(true) - 31);
 

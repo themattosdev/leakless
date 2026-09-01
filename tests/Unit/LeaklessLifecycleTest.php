@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\DTOs\Report;
+use TheMattos\Leakless\Guards\FileDescriptorGuard;
+use TheMattos\Leakless\Guards\TransactionGuard;
 use TheMattos\Leakless\Leakless;
 use TheMattos\Leakless\Support\ProcStatmParser;
+use TheMattos\Leakless\Support\StateRollback;
 
 test('it executes complete request cycle and produces clean report with standard config', function () {
     $recycled = false;
@@ -175,9 +178,9 @@ test('it automatically logs violations when state is dirty', function () {
 test('it exposes internal getters and resets', function () {
     $guardian = new Leakless;
     expect($guardian->getConfig())->toBeInstanceOf(Config::class)
-        ->and($guardian->getTransactionGuard())->toBeInstanceOf(\TheMattos\Leakless\Guards\TransactionGuard::class)
-        ->and($guardian->getFileDescriptorGuard())->toBeInstanceOf(\TheMattos\Leakless\Guards\FileDescriptorGuard::class)
-        ->and($guardian->getStateRollback())->toBeInstanceOf(\TheMattos\Leakless\Support\StateRollback::class);
+        ->and($guardian->getTransactionGuard())->toBeInstanceOf(TransactionGuard::class)
+        ->and($guardian->getFileDescriptorGuard())->toBeInstanceOf(FileDescriptorGuard::class)
+        ->and($guardian->getStateRollback())->toBeInstanceOf(StateRollback::class);
 
     $guardian->startRequest();
     expect($guardian->getRequestCount())->toBe(1);
@@ -233,4 +236,3 @@ test('it logs file descriptor leaks and cooldown active state', function () {
         expect($logged)->not->toBeEmpty();
     }
 });
-

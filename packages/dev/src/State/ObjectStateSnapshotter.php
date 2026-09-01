@@ -296,4 +296,3 @@ final class ObjectStateSnapshotter
         return $instances;
     }
 }
-
