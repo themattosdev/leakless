@@ -115,43 +115,53 @@ final class ObjectStateSnapshotter
         $state = [];
 
         $reflection = new ReflectionClass($object);
-
-        // If the entire class is annotated with #[AllowPersistentState], skip its properties
         if (count($reflection->getAttributes(AllowPersistentState::class)) > 0) {
             return [];
         }
 
         $currentClass = $reflection;
         while ($currentClass !== false) {
-            foreach ($currentClass->getProperties() as $property) {
-                if ($property->isStatic()) {
-                    continue;
-                }
-
-                // Skip properties explicitly annotated with #[AllowPersistentState]
-                if (count($property->getAttributes(AllowPersistentState::class)) > 0) {
-                    continue;
-                }
-
-                $propName = $property->getName();
-                $propKey = $currentClass->getName() === $reflection->getName()
-                    ? $propName
-                    : $currentClass->getName().'::'.$propName;
-
-                if (! $property->isInitialized($object)) {
-                    $state[$propKey] = '__UNINITIALIZED__';
-
-                    continue;
-                }
-
-                $value = $property->getValue($object);
-                $state[$propKey] = $this->serializeValue($value, $visited, $depth + 1, $maxDepth);
-            }
-
+            $this->captureClassProperties($object, $reflection, $currentClass, $visited, $depth, $maxDepth, $state);
             $currentClass = $currentClass->getParentClass();
         }
 
         return $state;
+    }
+
+    /**
+     * @param  ReflectionClass<object>  $rootReflection
+     * @param  ReflectionClass<object>  $currentClass
+     * @param  SplObjectStorage<object, bool>  $visited
+     * @param  array<string, mixed>  $state
+     */
+    private function captureClassProperties(
+        object $object,
+        ReflectionClass $rootReflection,
+        ReflectionClass $currentClass,
+        SplObjectStorage $visited,
+        int $depth,
+        int $maxDepth,
+        array &$state,
+    ): void {
+        foreach ($currentClass->getProperties() as $property) {
+            if ($property->isStatic() || count($property->getAttributes(AllowPersistentState::class)) > 0) {
+                continue;
+            }
+
+            $propName = $property->getName();
+            $propKey = $currentClass->getName() === $rootReflection->getName()
+                ? $propName
+                : $currentClass->getName().'::'.$propName;
+
+            if (! $property->isInitialized($object)) {
+                $state[$propKey] = '__UNINITIALIZED__';
+
+                continue;
+            }
+
+            $value = $property->getValue($object);
+            $state[$propKey] = $this->serializeValue($value, $visited, $depth + 1, $maxDepth);
+        }
     }
 
     /**
@@ -173,16 +183,7 @@ final class ObjectStateSnapshotter
         }
 
         if (is_object($value)) {
-            if ($value instanceof Closure) {
-                return 'Closure#'.spl_object_id($value);
-            }
-
-            if ($value instanceof ContainerInterface) {
-                return sprintf('container(%s#%d)', $value::class, spl_object_id($value));
-            }
-
-            // For nested complex services, capture their internal state
-            return $this->captureObjectState($value, $visited, $depth, $maxDepth);
+            return $this->serializeObject($value, $visited, $depth, $maxDepth);
         }
 
         if (is_resource($value)) {
@@ -190,6 +191,22 @@ final class ObjectStateSnapshotter
         }
 
         return gettype($value);
+    }
+
+    /**
+     * @param  SplObjectStorage<object, bool>  $visited
+     */
+    private function serializeObject(object $value, SplObjectStorage $visited, int $depth, int $maxDepth): mixed
+    {
+        if ($value instanceof Closure) {
+            return 'Closure#'.spl_object_id($value);
+        }
+
+        if ($value instanceof ContainerInterface) {
+            return sprintf('container(%s#%d)', $value::class, spl_object_id($value));
+        }
+
+        return $this->captureObjectState($value, $visited, $depth, $maxDepth);
     }
 
     private function areValuesEqual(mixed $a, mixed $b): bool
@@ -215,39 +232,62 @@ final class ObjectStateSnapshotter
      */
     private function extractFromContainer(ContainerInterface $container): array
     {
-        $instances = [];
+        $instances = $this->extractFromLaravelContainer($container);
+        if (count($instances) > 0) {
+            return $instances;
+        }
 
-        // 1. Laravel Container support (Illuminate\Container\Container)
-        if (property_exists($container, 'instances')) {
-            $ref = new ReflectionClass($container);
-            if ($ref->hasProperty('instances')) {
-                $prop = $ref->getProperty('instances');
-                $rawInstances = $prop->getValue($container);
-                if (is_array($rawInstances)) {
-                    foreach ($rawInstances as $instance) {
-                        if (is_object($instance) && ! ($instance instanceof ContainerInterface)) {
-                            $instances[] = $instance;
-                        }
-                    }
-                }
+        return $this->extractFromPsrProperties($container);
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    private function extractFromLaravelContainer(ContainerInterface $container): array
+    {
+        if (! property_exists($container, 'instances')) {
+            return [];
+        }
+
+        $ref = new ReflectionClass($container);
+        if (! $ref->hasProperty('instances')) {
+            return [];
+        }
+
+        $rawInstances = $ref->getProperty('instances')->getValue($container);
+        if (! is_array($rawInstances)) {
+            return [];
+        }
+
+        $instances = [];
+        foreach ($rawInstances as $instance) {
+            if (is_object($instance) && ! ($instance instanceof ContainerInterface)) {
+                $instances[] = $instance;
             }
         }
 
-        // 2. Generic PSR-11 container inspection via common internal properties
-        if (count($instances) === 0) {
-            $ref = new ReflectionClass($container);
-            $candidateProperties = ['services', 'entries', 'resolved', 'singletons', 'values'];
+        return $instances;
+    }
 
-            foreach ($candidateProperties as $propName) {
-                if ($ref->hasProperty($propName)) {
-                    $prop = $ref->getProperty($propName);
-                    $val = $prop->getValue($container);
-                    if (is_array($val)) {
-                        foreach ($val as $item) {
-                            if (is_object($item) && ! ($item instanceof ContainerInterface)) {
-                                $instances[] = $item;
-                            }
-                        }
+    /**
+     * @return array<int, object>
+     */
+    private function extractFromPsrProperties(ContainerInterface $container): array
+    {
+        $ref = new ReflectionClass($container);
+        $candidateProperties = ['services', 'entries', 'resolved', 'singletons', 'values'];
+        $instances = [];
+
+        foreach ($candidateProperties as $propName) {
+            if (! $ref->hasProperty($propName)) {
+                continue;
+            }
+
+            $val = $ref->getProperty($propName)->getValue($container);
+            if (is_array($val)) {
+                foreach ($val as $item) {
+                    if (is_object($item) && ! ($item instanceof ContainerInterface)) {
+                        $instances[] = $item;
                     }
                 }
             }

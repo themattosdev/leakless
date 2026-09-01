@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use TheMattos\Leakless\Support\StateResetter;
 use TheMattos\Leakless\Support\StateRollback;
 
 test('it restores timezone when mutated during request', function () {
@@ -48,4 +49,33 @@ test('it restores error reporting levels', function () {
     $rollback->rollback();
 
     expect(error_reporting())->toBe($initialReporting);
+});
+
+test('it restores working directory when changed during request', function () {
+    $initialDir = getcwd();
+    if ($initialDir === false) {
+        return;
+    }
+
+    $rollback = new StateRollback;
+
+    chdir(sys_get_temp_dir());
+    expect(getcwd())->toBe(sys_get_temp_dir());
+
+    $rollback->rollback();
+
+    expect(getcwd())->toBe($initialDir);
+});
+
+test('it exposes and executes state resetter during rollback', function () {
+    $rollback = new StateRollback;
+    expect($rollback->getStateResetter())->toBeInstanceOf(StateResetter::class);
+
+    $state = ['mutated' => true];
+    $rollback->registerResetTarget(function () use (&$state) {
+        $state['mutated'] = false;
+    });
+
+    $rollback->rollback();
+    expect($state['mutated'])->toBeFalse();
 });

@@ -32,17 +32,21 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, pdo, sqlite3, pdo_sqlite, posix
-          coverage: none
+          coverage: pcov
 
       - name: Install Composer Dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Code Style Check (Pint)
-        if: matrix.php == '8.3'
         run: vendor/bin/pint --test
+
+      - name: PHP Insights
+        run: vendor/bin/phpinsights analyse packages/runtime/src packages/dev/src --no-interaction --summary
+
 
       - name: Static Analysis (PHPStan Level 9)
         run: vendor/bin/phpstan analyse --memory-limit=512M
 
       - name: Test Suite (Pest)
-        run: vendor/bin/pest
+        run: vendor/bin/pest --coverage --min=93
+

@@ -67,20 +67,23 @@ test('singletons do laravel mantêm propriedades stateless', function () {
 
 ---
 
-## 2. Asserções Nativas para PHPUnit (`AssertsLeakless`)
+## 2. Asserções no PHPUnit
 
-Se seu projeto utiliza classes de teste padrão do PHPUnit (`TestCase`) em vez do Pest, utilize a trait `AssertsLeakless`:
+Para projetos que utilizam o PHPUnit tradicional (`TestCase`) ou chamadas estáticas avulsas, o Leakless oferece duas abordagens:
+
+### A. Trait de Instância (`InteractsWithLeakless`)
+Utilize a trait `InteractsWithLeakless` no seu `TestCase` para acessar asserções nativas via `$this->`:
 
 ```php
 namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use TheMattos\Leakless\Dev\PHPUnit\AssertsLeakless;
+use TheMattos\Leakless\Dev\Concerns\InteractsWithLeakless;
 use App\Services\PaymentService;
 
 final class PaymentServiceTest extends TestCase
 {
-    use AssertsLeakless;
+    use InteractsWithLeakless;
 
     public function test_service_is_worker_safe(): void
     {
@@ -104,14 +107,27 @@ final class PaymentServiceTest extends TestCase
 }
 ```
 
-### Métodos Disponíveis no PHPUnit
+### B. Motor Estático (`LeaklessAssert`)
+Se preferir invocar as asserções de forma estática (como o `PHPUnit\Framework\Assert`), utilize a classe `LeaklessAssert`:
+
+```php
+use TheMattos\Leakless\Dev\PHPUnit\LeaklessAssert;
+use App\Services\PaymentService;
+
+LeaklessAssert::assertIsLeakless(PaymentService::class);
+LeaklessAssert::assertRunsCleanly(fn () => doSomething(), maxDriftMb: 0.25);
+```
+
+---
+
+### Métodos Disponíveis
 
 | Método | Descrição |
 | :--- | :--- |
-| `$this->assertIsLeakless($target)` | Assere que uma classe/objeto não possui estado estático mutável ou injeções ilegais. |
-| `$this->assertRunsCleanly($callable, $config, $maxDriftMb)` | Executa um callback sob o Leakless e assere estado 100% limpo. |
-| `$this->assertResetsContainerState($target, $callback, $msg, $maxDepth)` | Captura snapshot de objetos/singletons do container para asserir ausência de mutações. |
-| `$this->assertStatelessInstances($target, $callback, $msg, $maxDepth)` | Alias para `assertResetsContainerState`. |
-| `$this->assertNoDanglingTransactions($reportOrResponse)` | Assere que nenhuma transação PDO permaneceu aberta. |
-| `$this->assertCleanWorkerState($reportOrResponse)` | Assere que o estado do worker terminou 100% limpo. |
-| `$this->assertNoMemoryDrift($reportOrResponse, $maxMb)` | Assere que o drift de memória física não ultrapassou o teto. |
+| `assertIsLeakless($target)` | Assere que uma classe/objeto não possui estado estático mutável ou injeções ilegais. |
+| `assertRunsCleanly($callable, $config, $maxDriftMb)` | Executa um callback sob o Leakless e assere estado 100% limpo. |
+| `assertResetsContainerState($target, $callback, $msg, $maxDepth)` | Captura snapshot de objetos/singletons do container para asserir ausência de mutações. |
+| `assertStatelessInstances($target, $callback, $msg, $maxDepth)` | Alias para `assertResetsContainerState`. |
+| `assertNoDanglingTransactions($reportOrResponse)` | Assere que nenhuma transação PDO permaneceu aberta. |
+| `assertCleanWorkerState($reportOrResponse)` | Assere que o estado do worker terminou 100% limpo. |
+| `assertNoMemoryDrift($reportOrResponse, $maxMb)` | Assere que o drift de memória física não ultrapassou o teto. |

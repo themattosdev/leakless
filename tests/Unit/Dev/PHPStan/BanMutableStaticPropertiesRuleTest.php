@@ -20,9 +20,7 @@ final class BanMutableStaticPropertiesRuleTest extends RuleTestCase
 
     public static function getAdditionalConfigFiles(): array
     {
-        return [
-            __DIR__.'/../../../../packages/dev/extension.neon',
-        ];
+        return [];
     }
 
     public function test_it_reports_mutable_static_properties_without_attribute(): void
@@ -32,7 +30,7 @@ final class BanMutableStaticPropertiesRuleTest extends RuleTestCase
             [
                 [
                     'Mutable static property Tests\Fixtures\PHPStan\MutableStaticFixture::$leakyCache retention detected. In persistent worker environments (FrankenPHP/Octane), mutable static properties retain state across requests and leak data between users. Mark as readonly, convert to instance property, or annotate with #[AllowPersistentState] if intentionally cached.',
-                    11,
+                    12,
                 ],
             ],
         );

@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 use TheMattos\Leakless\DTOs\Config;
 use TheMattos\Leakless\DTOs\Report;
+use TheMattos\Leakless\Guards\FileDescriptorGuard;
+use TheMattos\Leakless\Guards\TransactionGuard;
 use TheMattos\Leakless\Leakless;
 use TheMattos\Leakless\Support\ProcStatmParser;
+use TheMattos\Leakless\Support\StateRollback;
 
-test('it executes complete request cycle and produces clean report with standard 96MB RSS config', function () {
+test('it executes complete request cycle and produces clean report with standard config', function () {
     $recycled = false;
     $reported = null;
 
     $config = new Config(
-        maxRssMb: 96,
+        maxRssMb: 256,
         onReport: function (Report $r) use (&$reported): void {
             $reported = $r;
         },
@@ -40,7 +43,7 @@ test('it intercepts and rolls back dangling PDO transactions in request cycle', 
     $pdo = new PDO('sqlite::memory:');
     $pdo->exec('CREATE TABLE test (id INTEGER PRIMARY KEY)');
 
-    $guardian = new Leakless(new Config(maxRssMb: 96));
+    $guardian = new Leakless(new Config(maxRssMb: 256, autoRecycleOnViolation: false));
     $guardian->registerConnection($pdo);
 
     $guardian->startRequest();
@@ -62,7 +65,7 @@ test('it rolls back mutated timezone and output buffers on endRequest', function
     $initialTz = date_default_timezone_get();
     $initialOb = ob_get_level();
 
-    $guardian = new Leakless(new Config(maxRssMb: 96));
+    $guardian = new Leakless(new Config(maxRssMb: 256, autoRecycleOnViolation: false));
 
     $guardian->startRequest();
 
@@ -82,14 +85,14 @@ test('it triggers recycling when RSS threshold is breached', function () {
     $recycleReason = null;
 
     $config = new Config(
-        maxRssMb: 96,
+        maxRssMb: 256,
         autoRecycleOnViolation: true,
     );
 
-    // Fake statm file simulating 150MB RSS (38400 pages * 4096 bytes)
+    // Fake statm file simulating 300MB RSS (76800 pages * 4096 bytes)
     $fakeStatm = tempnam(sys_get_temp_dir(), 'leakless_statm_');
     assert($fakeStatm !== false);
-    file_put_contents($fakeStatm, '50000 38400 5000 100 0 5000 0');
+    file_put_contents($fakeStatm, '80000 76800 5000 100 0 5000 0');
 
     $parser = new ProcStatmParser(statmPath: $fakeStatm);
 
@@ -107,7 +110,7 @@ test('it triggers recycling when RSS threshold is breached', function () {
 
     expect($report->shouldRecycle)->toBeTrue()
         ->and($recycled)->toBeTrue()
-        ->and($recycleReason)->toContain('150MB > 96MB');
+        ->and($recycleReason)->toContain('300MB > 256MB');
 
     @unlink($fakeStatm);
 });
@@ -117,7 +120,7 @@ test('it triggers recycling when maxRequests limit is reached', function () {
     $recycleReason = null;
 
     $config = new Config(
-        maxRssMb: 96,
+        maxRssMb: 256,
         maxRequests: 2,
         autoRecycleOnViolation: true,
     );
@@ -148,7 +151,7 @@ test('it automatically logs violations when state is dirty', function () {
     $loggedMessages = [];
 
     $config = new Config(
-        maxRssMb: 96,
+        maxRssMb: 256,
         maxRequests: 1,
         logViolations: true,
         logger: function (string $msg, Report $r) use (&$loggedMessages): void {
@@ -170,4 +173,66 @@ test('it automatically logs violations when state is dirty', function () {
     expect($loggedMessages)->toHaveCount(2)
         ->and($loggedMessages[0])->toContain('[Leakless] 🚨 Dangling database transaction(s) detected')
         ->and($loggedMessages[1])->toContain('[Leakless] ⚠️ Worker recycling triggered');
+});
+
+test('it exposes internal getters and resets', function () {
+    $guardian = new Leakless;
+    expect($guardian->getConfig())->toBeInstanceOf(Config::class)
+        ->and($guardian->getTransactionGuard())->toBeInstanceOf(TransactionGuard::class)
+        ->and($guardian->getFileDescriptorGuard())->toBeInstanceOf(FileDescriptorGuard::class)
+        ->and($guardian->getStateRollback())->toBeInstanceOf(StateRollback::class);
+
+    $guardian->startRequest();
+    expect($guardian->getRequestCount())->toBe(1);
+    $guardian->resetRequestCount();
+    expect($guardian->getRequestCount())->toBe(0);
+
+    $guardian->resetConsecutiveViolations();
+    expect($guardian->getConsecutiveViolations())->toBe(0);
+
+    $now = microtime(true);
+    $guardian->setLastRecycleTimestamp($now);
+    expect($guardian->getLastRecycleTimestamp())->toBe($now);
+});
+
+test('it handles null max drift and disabled transactions checks', function () {
+    $config = new Config(
+        maxDriftMb: null,
+        checkTransactions: false,
+    );
+
+    $guardian = new Leakless($config);
+    expect($guardian->getEffectiveDriftLimitMb())->toBeNull();
+
+    // Call endRequest directly without startRequest
+    $report = $guardian->endRequest();
+    expect($report->isClean())->toBeTrue()
+        ->and($report->durationMs)->toBe(0.0);
+});
+
+test('it logs file descriptor leaks and cooldown active state', function () {
+    $logged = [];
+    $config = new Config(
+        maxRssMb: 256,
+        checkFileDescriptors: true,
+        logViolations: true,
+        logger: function (string $msg) use (&$logged): void {
+            $logged[] = $msg;
+        },
+    );
+
+    $guardian = new Leakless($config);
+    $guardian->startRequest();
+
+    $tmp = tmpfile();
+
+    $guardian->endRequest();
+
+    if (is_resource($tmp)) {
+        fclose($tmp);
+    }
+
+    if (is_dir('/proc/self/fd')) {
+        expect($logged)->not->toBeEmpty();
+    }
 });

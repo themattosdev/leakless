@@ -27,7 +27,7 @@ final class TestResponseMacrosTest extends TestCase
     {
         /** @var ConfigRepository $config */
         $config = $app['config'];
-        $config->set('leakless.max_rss_mb', 96);
+        $config->set('leakless.max_rss_mb', 256);
         $config->set('leakless.log_violations', false);
     }
 

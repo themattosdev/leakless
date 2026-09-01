@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Dev\PHPUnit;
+namespace Tests\Unit\Dev\Concerns;
 
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
 use TheMattos\Leakless\Attributes\AllowPersistentState;
-use TheMattos\Leakless\Dev\PHPUnit\AssertsLeakless;
+use TheMattos\Leakless\Dev\Concerns\InteractsWithLeakless;
 use TheMattos\Leakless\DTOs\ProcessMetrics;
 use TheMattos\Leakless\DTOs\Report;
 
-final class AssertsLeaklessTest extends TestCase
+final class InteractsWithLeaklessTest extends TestCase
 {
-    use AssertsLeakless;
+    use InteractsWithLeakless;
 
     public function test_it_passes_for_clean_class(): void
     {
@@ -89,5 +89,36 @@ final class AssertsLeaklessTest extends TestCase
         );
 
         $this->assertNoDanglingTransactions($report);
+    }
+
+    public function test_it_fails_when_target_is_invalid_in_assert_is_leakless(): void
+    {
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('Expected value must be a valid class-string or an object.');
+
+        /** @var mixed $nonExistent */
+        $nonExistent = 'NonExistentClassString';
+        // @phpstan-ignore argument.type
+        $this->assertIsLeakless($nonExistent);
+    }
+
+    public function test_it_fails_when_container_target_has_no_instances(): void
+    {
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('No valid object instances or container singletons found');
+
+        $this->assertResetsContainerState([], fn () => null);
+    }
+
+    public function test_it_asserts_stateless_instances_successfully(): void
+    {
+        $cleanService = new class
+        {
+            public string $name = 'initial';
+        };
+
+        $this->assertStatelessInstances($cleanService, function () {
+            // pure logic without mutating $cleanService
+        });
     }
 }

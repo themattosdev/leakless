@@ -27,43 +27,60 @@ final class FrankenPhp
         ?int $maxLoops = null,
     ): Leakless {
         $guardian ??= new Leakless($config);
-
         $loops = 0;
 
         while ($maxLoops === null || $loops < $maxLoops) {
             $loops++;
-            $guardian->startRequest();
-
-            $shouldBreak = false;
-
-            try {
-                if ($requestHandlerRunner !== null) {
-                    $continue = $requestHandlerRunner($app);
-                    if (! $continue) {
-                        $shouldBreak = true;
-                    }
-                } elseif (function_exists('frankenphp_handle_request')) {
-                    $continue = frankenphp_handle_request($app);
-                    if (! $continue) {
-                        $shouldBreak = true;
-                    }
-                } else {
-                    // Direct invocation fallback if running in CLI without native frankenphp module
-                    $app();
-                }
-            } finally {
-                $report = $guardian->endRequest();
-
-                if ($report->shouldRecycle) {
-                    $shouldBreak = true;
-                }
-            }
-
+            $shouldBreak = self::executeSingleIteration($guardian, $app, $requestHandlerRunner);
             if ($shouldBreak) {
                 break;
             }
         }
 
         return $guardian;
+    }
+
+    /**
+     * @param  (Closure(): mixed)  $app
+     * @param  (Closure(Closure): bool)|null  $requestHandlerRunner
+     */
+    private static function executeSingleIteration(
+        Leakless $guardian,
+        Closure $app,
+        ?Closure $requestHandlerRunner,
+    ): bool {
+        $guardian->startRequest();
+        $shouldBreak = false;
+
+        try {
+            $continue = self::dispatchRequest($app, $requestHandlerRunner);
+            $shouldBreak = ! $continue;
+        } finally {
+            $report = $guardian->endRequest();
+            if ($report->shouldRecycle) {
+                $shouldBreak = true;
+            }
+        }
+
+        return $shouldBreak;
+    }
+
+    /**
+     * @param  (Closure(): mixed)  $app
+     * @param  (Closure(Closure): bool)|null  $requestHandlerRunner
+     */
+    private static function dispatchRequest(Closure $app, ?Closure $requestHandlerRunner): bool
+    {
+        if ($requestHandlerRunner !== null) {
+            return $requestHandlerRunner($app);
+        }
+
+        if (function_exists('frankenphp_handle_request')) {
+            return frankenphp_handle_request($app);
+        }
+
+        $app();
+
+        return true;
     }
 }

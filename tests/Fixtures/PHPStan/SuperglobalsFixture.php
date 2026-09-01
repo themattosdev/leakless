@@ -11,6 +11,8 @@ class SuperglobalsFixture
         $id = $_GET['id'] ?? null;
         $name = $_POST['name'] ?? null;
         $session = $_SESSION['user'] ?? null;
+        $req = $_REQUEST['data'] ?? null;
+        $files = $_FILES['avatar'] ?? null;
 
         session_start();
 

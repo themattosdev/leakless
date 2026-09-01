@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Psr\Container\ContainerInterface;
 use TheMattos\Leakless\Attributes\AllowPersistentState;
 use TheMattos\Leakless\Dev\State\ObjectStateSnapshotter;
 
@@ -185,4 +186,73 @@ test('it respects custom maxDepth parameter during object inspection', function 
     $afterDeep = $snapshotter->snapshot($instances, maxDepth: 3);
     $mutationsDeep = $snapshotter->compare($instances, $beforeDeep, $afterDeep);
     expect($mutationsDeep)->not->toBeEmpty();
+});
+
+test('it extracts instances from generic psr-11 container', function () {
+    $container = new class implements ContainerInterface
+    {
+        /** @var array<int, object> */
+        public array $services = [];
+
+        /** @var array<int, object> */
+        public array $singletons = [];
+
+        public function get(string $id): mixed
+        {
+            return $this->services[$id] ?? null;
+        }
+
+        public function has(string $id): bool
+        {
+            return isset($this->services[$id]);
+        }
+    };
+
+    $s1 = new SimpleCleanService;
+    $s2 = new MutableService;
+    $container->services = [$s1];
+    $container->singletons = [$s2];
+
+    $snapshotter = new ObjectStateSnapshotter;
+    expect($snapshotter->extractInstances($container))->toHaveCount(2)
+        ->and($snapshotter->extractInstances('non_object'))->toBeEmpty();
+});
+
+test('it serializes closures, nested containers, and resources safely', function () {
+    $container = new class implements ContainerInterface
+    {
+        public function get(string $id): mixed
+        {
+            return null;
+        }
+
+        public function has(string $id): bool
+        {
+            return false;
+        }
+    };
+
+    $fp = tmpfile();
+
+    $complexService = new class($container, $fp)
+    {
+        public Closure $callback;
+
+        public function __construct(
+            public ContainerInterface $container,
+            public mixed $resource,
+        ) {
+            $this->callback = fn () => true;
+        }
+    };
+
+    $snapshotter = new ObjectStateSnapshotter;
+    $instances = [$complexService];
+
+    $before = $snapshotter->snapshot($instances);
+    expect($before)->not->toBeEmpty();
+
+    if (is_resource($fp)) {
+        fclose($fp);
+    }
 });

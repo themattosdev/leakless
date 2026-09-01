@@ -40,7 +40,8 @@ final class LeaklessServiceProvider extends ServiceProvider
              *     recycle_cooldown?: int,
              *     trigger_gc?: bool,
              *     drift_jitter?: int,
-             *     log_violations?: bool
+             *     log_violations?: bool,
+             *     resettables?: array<int, class-string<object>|object|callable>
              * } $cfg */
             $cfg = (array) $configRepository->get('leakless', []);
 
@@ -89,12 +90,16 @@ final class LeaklessServiceProvider extends ServiceProvider
                 driftJitterPercentage: (int) ($cfg['drift_jitter'] ?? 10),
                 logViolations: (bool) ($cfg['log_violations'] ?? true),
                 logger: $logger,
+                resettables: (array) ($cfg['resettables'] ?? []),
             );
         });
 
         $this->app->singleton(Leakless::class, function (Application $app): Leakless {
             return new Leakless(
                 config: $app->make(Config::class),
+                recycler: function (Report $report): void {
+                    // Recycling lifecycle in Laravel is managed via OctaneTerminatedListener
+                },
             );
         });
 

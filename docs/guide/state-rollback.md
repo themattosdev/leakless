@@ -27,3 +27,75 @@ If an error or unhandled branch leaves output buffers unclosed (`ob_start()` wit
 If code temporarily alters error reporting (`error_reporting(E_ALL)` or silences errors via `@` / custom levels):
 - Leakless records the original error reporting bitmask.
 - Restores the original `error_reporting()` level at request completion.
+
+---
+
+## 4. Zero-Reflection Resettables Engine (`StateResetter`)
+
+Beyond global PHP settings, persistent services and static singletons often accumulate state across requests (e.g. caches, buffers, user sessions).
+
+Leakless includes a high-performance **Zero-Reflection in Hot Path** state reset engine:
+
+```
+registerTarget($target) / Config::$resettables  ──► [Warmup / Registration (Reflection once)]
+                                                              │
+                                                              ▼
+                                                   Compile native Closures
+                                                              │
+                                                              ▼
+endRequest() ─────────────────────────────────────► foreach ($closures) { $closure(); }
+                                                    [Hot Path: Pure Native Closures]
+```
+
+### Supported Resettable Target Types
+
+1. **Anonymous Callbacks / Closures**:
+   ```php
+   $config = new Config(
+       resettables: [
+           fn () => LegacyRegistry::$cache = [],
+       ],
+   );
+   ```
+
+2. **Conventional Reset Methods (`ResetInterface` / `reset()` / `cleanup()`)**:
+   ```php
+   class CartSession
+   {
+       public array $items = [];
+
+       public function reset(): void
+       {
+           $this->items = [];
+       }
+   }
+   ```
+
+3. **Static Reset Methods on Classes**:
+   ```php
+   class MetricsBuffer
+   {
+       public static array $logs = [];
+
+       public static function resetState(): void
+       {
+           self::$logs = [];
+       }
+   }
+   ```
+
+4. **Declarative `#[ResetOnRequest]` Attributes**:
+   ```php
+   use TheMattos\Leakless\Attributes\ResetOnRequest;
+
+   class UserContext
+   {
+       #[ResetOnRequest(default: [])]
+       public array $permissions = ['admin'];
+
+       #[ResetOnRequest]
+       public static ?string $token = null;
+   }
+   ```
+
+At request completion (`endRequest()`), Leakless automatically executes all compiled resetters without any reflection overhead.

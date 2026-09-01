@@ -58,3 +58,37 @@ test('it audits additional on-the-fly connections', function () {
         ->and($pdo1->inTransaction())->toBeFalse()
         ->and($pdo2->inTransaction())->toBeFalse();
 });
+
+test('it clears registered connections', function () {
+    $pdo = new PDO('sqlite::memory:');
+    $guard = new TransactionGuard;
+    $guard->registerConnection($pdo);
+
+    $guard->clearConnections();
+
+    $pdo->beginTransaction();
+    $result = $guard->auditAndRollback();
+
+    expect($result['detected'])->toBeFalse()
+        ->and($result['rolledBackCount'])->toBe(0)
+        ->and($pdo->inTransaction())->toBeTrue();
+
+    $pdo->rollBack();
+});
+
+test('it captures exceptions during rollback gracefully', function () {
+    $mockPdo = mock(PDO::class);
+    $mockPdo->shouldReceive('inTransaction')->andReturnTrue();
+    $mockPdo->shouldReceive('rollBack')->andThrow(new RuntimeException('Connection dropped'));
+    assert($mockPdo instanceof PDO);
+
+    $guard = new TransactionGuard;
+    $guard->registerConnection($mockPdo);
+
+    $result = $guard->auditAndRollback();
+
+    expect($result['detected'])->toBeFalse()
+        ->and($result['rolledBackCount'])->toBe(0)
+        ->and($result['errors'])->toHaveCount(1)
+        ->and($result['errors'][0])->toBe('Connection dropped');
+});

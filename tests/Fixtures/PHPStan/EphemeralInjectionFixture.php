@@ -19,3 +19,13 @@ class EphemeralInjectionController
         private Request $request,
     ) {}
 }
+
+class EphemeralSafeMethod
+{
+    public function handle(Request $request): void {}
+}
+
+class EphemeralUntypedParam
+{
+    public function __construct($untyped) {}
+}

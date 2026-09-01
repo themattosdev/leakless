@@ -75,6 +75,10 @@ final class Leakless
         $this->stateRollback = $stateRollback ?? new StateRollback;
         $this->recycler = $recycler;
 
+        if (! empty($this->config->resettables)) {
+            $this->stateRollback->registerResetTargets($this->config->resettables);
+        }
+
         $this->calculateEffectiveDriftLimit();
     }
 
@@ -109,76 +113,10 @@ final class Leakless
             ? round((microtime(true) - $this->requestStartTime) * 1000, 2)
             : 0.0;
 
-        // 1. Audit and defensibly roll back open transactions
-        $txAudit = $this->config->checkTransactions
-            ? $this->transactionGuard->auditAndRollback($additionalConnections)
-            : ['detected' => false, 'rolledBackCount' => 0, 'errors' => []];
+        [$txAudit, $fdAudit] = $this->auditGuardsAndRollback($additionalConnections);
+        [$initialMetrics, $finalMetrics, $baselineRssMb, $currentDriftMb, $driftLimit] = $this->evaluateMemoryMetrics();
+        [$shouldRecycle, $recycleReason, $cooldownActive] = $this->evaluateRecycleDecision($finalMetrics, $currentDriftMb, $driftLimit);
 
-        // 2. Audit lingering file descriptors
-        $fdAudit = $this->config->checkFileDescriptors
-            ? $this->fileDescriptorGuard->audit($this->initialDescriptors)
-            : ['detected' => false, 'leakedCount' => 0, 'leakedDescriptors' => []];
-
-        // 3. Perform state rollback for global environment
-        $this->stateRollback->rollback();
-
-        // 4. Capture post-request process metrics
-        $finalMetrics = $this->statmParser->parse();
-        $initialMetrics = $this->initialMetrics ?? $finalMetrics;
-        $this->baselineMetrics ??= $initialMetrics;
-        $baselineRssMb = $this->baselineMetrics->rssMb;
-
-        // 5. Check memory thresholds (Relative Soft Drift vs. Emergency Hard Ceiling)
-        $driftLimit = $this->effectiveDriftLimitMb ?? (float) ($this->config->maxDriftMb ?? 64);
-        $currentDriftMb = round($finalMetrics->rssMb - $baselineRssMb, 2);
-
-        $softDriftBreached = $this->config->maxDriftMb !== null && $currentDriftMb > $driftLimit;
-        $hardCeilingBreached = $this->config->maxRssMb !== null && $finalMetrics->rssMb > $this->config->maxRssMb;
-
-        // 6. If threshold breached, trigger gc_collect_cycles() and re-evaluate physical memory
-        if (($softDriftBreached || $hardCeilingBreached) && $this->config->triggerGcOnBreach) {
-            gc_collect_cycles();
-            $finalMetrics = $this->statmParser->parse();
-            $currentDriftMb = round($finalMetrics->rssMb - $baselineRssMb, 2);
-            $softDriftBreached = $this->config->maxDriftMb !== null && $currentDriftMb > $driftLimit;
-            $hardCeilingBreached = $this->config->maxRssMb !== null && $finalMetrics->rssMb > $this->config->maxRssMb;
-        }
-
-        // 7. Track consecutive violations for hysteresis
-        if ($softDriftBreached) {
-            $this->consecutiveViolations++;
-        } else {
-            $this->consecutiveViolations = 0;
-        }
-
-        // 8. Evaluate whether worker should be recycled
-        $shouldRecycle = false;
-        $recycleReason = null;
-        $cooldownActive = false;
-        $now = microtime(true);
-
-        if ($hardCeilingBreached) {
-            $shouldRecycle = true;
-            $recycleReason = "Emergency RSS memory ceiling exceeded: {$finalMetrics->rssMb}MB > {$this->config->maxRssMb}MB";
-        } elseif ($this->config->maxDriftMb !== null && $this->consecutiveViolations >= $this->config->consecutiveViolationsThreshold) {
-            if ($this->lastRecycleTimestamp !== null && ($now - $this->lastRecycleTimestamp) < $this->config->recycleCooldownSeconds) {
-                $cooldownActive = true;
-                $recycleReason = "Memory drift exceeded limit ({$currentDriftMb}MB > {$driftLimit}MB across {$this->consecutiveViolations} consecutive requests), but recycling is throttled by cooldown window ({$this->config->recycleCooldownSeconds}s).";
-            } else {
-                $shouldRecycle = true;
-                $recycleReason = "Memory drift limit exceeded: {$currentDriftMb}MB > {$driftLimit}MB persistently across {$this->consecutiveViolations} consecutive requests";
-            }
-        } elseif ($this->config->maxRequests !== null && $this->requestCount >= $this->config->maxRequests) {
-            $shouldRecycle = true;
-            $recycleReason = "Max requests ceiling reached: {$this->requestCount}/{$this->config->maxRequests}";
-        }
-
-        if ($shouldRecycle) {
-            $this->lastRecycleTimestamp = $now;
-            $this->consecutiveViolations = 0;
-        }
-
-        // 9. Build Report DTO
         $report = new Report(
             initialMetrics: $initialMetrics,
             finalMetrics: $finalMetrics,
@@ -197,23 +135,140 @@ final class Leakless
         );
 
         $this->lastReport = $report;
+        $this->dispatchReportNotifications($report);
 
-        // 10. Log anomalies / violations automatically (Zero-Config Logging)
+        return $report;
+    }
+
+    private function dispatchReportNotifications(Report $report): void
+    {
         if ($this->config->logViolations && ! $report->isClean()) {
             $this->logViolation($report);
         }
 
-        // 11. Trigger telemetry callback if configured
         if ($this->config->onReport !== null) {
             ($this->config->onReport)($report);
         }
 
-        // 12. Trigger graceful recycling if required
-        if ($shouldRecycle && $this->config->autoRecycleOnViolation) {
+        if ($report->shouldRecycle && $this->config->autoRecycleOnViolation) {
             $this->triggerRecycle($report);
         }
+    }
 
-        return $report;
+    /**
+     * @param  array<int, PDO>  $additionalConnections
+     * @return array{0: array{detected: bool, rolledBackCount: int, errors: array<int, string>}, 1: array{detected: bool, leakedCount: int, leakedDescriptors: array<int, string>}}
+     */
+    private function auditGuardsAndRollback(array $additionalConnections): array
+    {
+        $txAudit = $this->config->checkTransactions
+            ? $this->transactionGuard->auditAndRollback($additionalConnections)
+            : ['detected' => false, 'rolledBackCount' => 0, 'errors' => []];
+
+        $fdAudit = $this->config->checkFileDescriptors
+            ? $this->fileDescriptorGuard->audit($this->initialDescriptors)
+            : ['detected' => false, 'leakedCount' => 0, 'leakedDescriptors' => []];
+
+        $this->stateRollback->rollback();
+
+        return [$txAudit, $fdAudit];
+    }
+
+    /**
+     * @return array{0: ProcessMetrics, 1: ProcessMetrics, 2: float, 3: float, 4: float}
+     */
+    private function evaluateMemoryMetrics(): array
+    {
+        $finalMetrics = $this->statmParser->parse();
+        $initialMetrics = $this->initialMetrics ?? $finalMetrics;
+        $this->baselineMetrics ??= $initialMetrics;
+        $baselineRssMb = $this->baselineMetrics->rssMb;
+
+        $driftLimit = $this->effectiveDriftLimitMb ?? (float) ($this->config->maxDriftMb ?? 64);
+        $currentDriftMb = round($finalMetrics->rssMb - $baselineRssMb, 2);
+
+        $softDriftBreached = $this->isSoftDriftBreached($currentDriftMb, $driftLimit);
+        $hardCeilingBreached = $this->isHardCeilingBreached($finalMetrics);
+
+        if (($softDriftBreached || $hardCeilingBreached) && $this->config->triggerGcOnBreach) {
+            $finalMetrics = $this->reEvaluateMetricsAfterGc();
+            $currentDriftMb = round($finalMetrics->rssMb - $baselineRssMb, 2);
+            $softDriftBreached = $this->isSoftDriftBreached($currentDriftMb, $driftLimit);
+        }
+
+        $this->consecutiveViolations = $softDriftBreached ? $this->consecutiveViolations + 1 : 0;
+
+        return [$initialMetrics, $finalMetrics, $baselineRssMb, $currentDriftMb, $driftLimit];
+    }
+
+    private function isSoftDriftBreached(float $currentDriftMb, float $driftLimit): bool
+    {
+        return $this->config->maxDriftMb !== null && $currentDriftMb > $driftLimit;
+    }
+
+    private function isHardCeilingBreached(ProcessMetrics $finalMetrics): bool
+    {
+        return $this->config->maxRssMb !== null && $finalMetrics->rssMb > $this->config->maxRssMb;
+    }
+
+    private function reEvaluateMetricsAfterGc(): ProcessMetrics
+    {
+        gc_collect_cycles();
+
+        return $this->statmParser->parse();
+    }
+
+    /**
+     * @return array{0: bool, 1: string|null, 2: bool}
+     */
+    private function evaluateRecycleDecision(ProcessMetrics $finalMetrics, float $currentDriftMb, float $driftLimit): array
+    {
+        $now = microtime(true);
+
+        if ($this->isHardCeilingBreached($finalMetrics)) {
+            $this->recordRecycleTrigger($now);
+
+            return [true, "Emergency RSS memory ceiling exceeded: {$finalMetrics->rssMb}MB > {$this->config->maxRssMb}MB", false];
+        }
+
+        if ($this->isDriftThresholdMet()) {
+            if ($this->isCooldownThrottled($now)) {
+                return [false, "Memory drift exceeded limit ({$currentDriftMb}MB > {$driftLimit}MB across {$this->consecutiveViolations} consecutive requests), but recycling is throttled by cooldown window ({$this->config->recycleCooldownSeconds}s).", true];
+            }
+
+            $this->recordRecycleTrigger($now);
+
+            return [true, "Memory drift limit exceeded: {$currentDriftMb}MB > {$driftLimit}MB persistently across {$this->consecutiveViolations} consecutive requests", false];
+        }
+
+        if ($this->isMaxRequestsBreached()) {
+            $this->recordRecycleTrigger($now);
+
+            return [true, "Max requests ceiling reached: {$this->requestCount}/{$this->config->maxRequests}", false];
+        }
+
+        return [false, null, false];
+    }
+
+    private function isDriftThresholdMet(): bool
+    {
+        return $this->config->maxDriftMb !== null && $this->consecutiveViolations >= $this->config->consecutiveViolationsThreshold;
+    }
+
+    private function isCooldownThrottled(float $now): bool
+    {
+        return $this->lastRecycleTimestamp !== null && ($now - $this->lastRecycleTimestamp) < $this->config->recycleCooldownSeconds;
+    }
+
+    private function isMaxRequestsBreached(): bool
+    {
+        return $this->config->maxRequests !== null && $this->requestCount >= $this->config->maxRequests;
+    }
+
+    private function recordRecycleTrigger(float $now): void
+    {
+        $this->lastRecycleTimestamp = $now;
+        $this->consecutiveViolations = 0;
     }
 
     /**
@@ -311,6 +366,35 @@ final class Leakless
         return $this->stateRollback;
     }
 
+    public function getStateResetter(): Support\StateResetter
+    {
+        return $this->stateRollback->getStateResetter();
+    }
+
+    /**
+     * Register a class string, object instance, or callable to be automatically reset at the end of each request.
+     *
+     * @param  class-string<object>|object|callable  $target
+     */
+    public function registerResetTarget(string|object|callable $target): self
+    {
+        $this->stateRollback->registerResetTarget($target);
+
+        return $this;
+    }
+
+    /**
+     * Register multiple targets to be automatically reset at the end of each request.
+     *
+     * @param  array<int, class-string<object>|object|callable>  $targets
+     */
+    public function registerResetTargets(array $targets): self
+    {
+        $this->stateRollback->registerResetTargets($targets);
+
+        return $this;
+    }
+
     public function resetRequestCount(): void
     {
         $this->requestCount = 0;
@@ -339,6 +423,22 @@ final class Leakless
 
     private function logViolation(Report $report): void
     {
+        $messages = $this->buildViolationMessages($report);
+
+        foreach ($messages as $message) {
+            if ($this->config->logger !== null) {
+                ($this->config->logger)($message, $report);
+            } else {
+                error_log($message);
+            }
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function buildViolationMessages(Report $report): array
+    {
         $messages = [];
 
         if ($report->danglingTransactionsDetected) {
@@ -350,19 +450,25 @@ final class Leakless
             $messages[] = "[Leakless] 🚨 Lingering file descriptor(s) detected ({$report->fileDescriptorsLeakedCount} descriptor(s)): {$details}";
         }
 
-        if ($report->cooldownActive && $report->recycleReason !== null) {
-            $messages[] = "[Leakless] ⏳ {$report->recycleReason}";
-        } elseif ($report->shouldRecycle && $report->recycleReason !== null) {
-            $messages[] = "[Leakless] ⚠️ Worker recycling triggered. Reason: {$report->recycleReason}";
+        $recycleMessage = $this->buildRecycleViolationMessage($report);
+        if ($recycleMessage !== null) {
+            $messages[] = $recycleMessage;
         }
 
-        foreach ($messages as $message) {
-            if ($this->config->logger !== null) {
-                ($this->config->logger)($message, $report);
-            } else {
-                error_log($message);
-            }
+        return $messages;
+    }
+
+    private function buildRecycleViolationMessage(Report $report): ?string
+    {
+        if ($report->cooldownActive && $report->recycleReason !== null) {
+            return "[Leakless] ⏳ {$report->recycleReason}";
         }
+
+        if ($report->shouldRecycle && $report->recycleReason !== null) {
+            return "[Leakless] ⚠️ Worker recycling triggered. Reason: {$report->recycleReason}";
+        }
+
+        return null;
     }
 
     private function triggerRecycle(Report $report): void

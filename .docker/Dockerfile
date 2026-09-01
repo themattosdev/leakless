@@ -8,11 +8,12 @@ RUN apk add --no-cache \
     sqlite-dev \
     $PHPIZE_DEPS
 
-# Install additional extensions needed (pcntl, posix, pdo_sqlite)
+# Install additional extensions needed (pcntl, posix, pdo_sqlite, pcov)
 RUN install-php-extensions \
     pcntl \
     posix \
-    pdo_sqlite
+    pdo_sqlite \
+    pcov
 
 # Configure PHP memory limit for CLI and static analysis
 RUN echo "memory_limit = 512M" > /usr/local/etc/php/conf.d/docker-php-memlimit.ini

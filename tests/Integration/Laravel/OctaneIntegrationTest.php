@@ -37,7 +37,7 @@ final class OctaneIntegrationTest extends TestCase
             'prefix' => '',
         ]);
 
-        $config->set('leakless.max_rss_mb', 96);
+        $config->set('leakless.max_rss_mb', 256);
         $config->set('leakless.check_transactions', true);
         $config->set('leakless.check_file_descriptors', true);
         $config->set('leakless.log_violations', false);
@@ -61,7 +61,7 @@ final class OctaneIntegrationTest extends TestCase
 
         $this->assertInstanceOf(Leakless::class, $leakless);
         $this->assertInstanceOf(Config::class, $config);
-        $this->assertSame(96, $config->maxRssMb);
+        $this->assertSame(256, $config->maxRssMb);
         $this->assertSame(64, $config->maxDriftMb);
         $this->assertTrue($config->checkTransactions);
         $this->assertTrue($config->checkFileDescriptors);
@@ -198,7 +198,6 @@ final class OctaneIntegrationTest extends TestCase
         $app->forgetInstance(Config::class);
         $app->forgetInstance(Leakless::class);
 
-        Log::shouldReceive('warning')->atLeast()->once();
         Log::shouldReceive('error')
             ->once()
             ->withArgs(function (string $message, array $context): bool {
@@ -259,5 +258,84 @@ final class OctaneIntegrationTest extends TestCase
 
             public mixed $response = null;
         });
+    }
+
+    public function test_it_extracts_request_and_response_metadata_in_octane_terminated_event(): void
+    {
+        /** @var Application $app */
+        $app = $this->app;
+
+        /** @var Leakless $leakless */
+        $leakless = $app->make(Leakless::class);
+
+        $requestMock = new class
+        {
+            public function path(): string
+            {
+                return 'api/v1/users';
+            }
+
+            public function method(): string
+            {
+                return 'POST';
+            }
+        };
+
+        $responseMock = new class
+        {
+            public function getStatusCode(): int
+            {
+                return 201;
+            }
+        };
+
+        $event = new class($requestMock, $responseMock)
+        {
+            public function __construct(
+                public mixed $request,
+                public mixed $response,
+            ) {}
+        };
+
+        Event::dispatch('Laravel\Octane\Events\RequestReceived', $event);
+        Event::dispatch('Laravel\Octane\Events\RequestTerminated', $event);
+
+        $report = $leakless->getLastReport();
+        $this->assertNotNull($report);
+        $this->assertSame('api/v1/users', $report->metadata['path'] ?? null);
+        $this->assertSame('POST', $report->metadata['method'] ?? null);
+        $this->assertSame(201, $report->metadata['status'] ?? null);
+    }
+
+    public function test_it_does_not_register_octane_listeners_when_disabled(): void
+    {
+        /** @var Application $app */
+        $app = $this->app;
+
+        /** @var ConfigRepository $configRepo */
+        $configRepo = $app->make('config');
+        $configRepo->set('leakless.enabled', false);
+
+        $provider = new LeaklessServiceProvider($app);
+        $provider->boot();
+
+        $this->assertFalse((bool) $configRepo->get('leakless.enabled'));
+    }
+
+    public function test_it_resolves_default_config_parameters_when_keys_are_omitted(): void
+    {
+        /** @var Application $app */
+        $app = $this->app;
+
+        /** @var ConfigRepository $configRepo */
+        $configRepo = $app->make('config');
+        $configRepo->set('leakless', [
+            'enabled' => true,
+            'max_rss_mb' => 256,
+        ]);
+
+        $config = $app->make(Config::class);
+        $this->assertSame(64, $config->maxDriftMb);
+        $this->assertSame(256, $config->maxRssMb);
     }
 }

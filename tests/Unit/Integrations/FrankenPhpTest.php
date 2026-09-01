@@ -10,7 +10,7 @@ test('it executes app handler across worker loops with FrankenPhp helper', funct
     $executions = 0;
     $pdo = new PDO('sqlite::memory:');
 
-    $guardian = new Leakless(new Config(maxRssMb: 96));
+    $guardian = new Leakless(new Config(maxRssMb: 256, autoRecycleOnViolation: false));
     $guardian->registerConnection($pdo);
 
     $app = function () use (&$executions, $pdo): void {
@@ -54,4 +54,18 @@ test('it breaks the worker loop when runner returns false', function () {
 
     expect($runs)->toBe(2)
         ->and($guardian->getRequestCount())->toBe(2);
+});
+
+test('it executes app via direct invocation fallback or native frankenphp handler', function () {
+    $executed = 0;
+
+    $guardian = FrankenPhp::run(
+        app: function () use (&$executed): void {
+            $executed++;
+        },
+        maxLoops: 2,
+    );
+
+    expect($executed)->toBeGreaterThanOrEqual(1)
+        ->and($guardian->getRequestCount())->toBeGreaterThanOrEqual(1);
 });

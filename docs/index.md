@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Leakless"
   text: "Zero-State & Memory Leak Prevention"
-  tagline: "The autonomous runtime guardian and static analysis engine for persistent PHP workers (FrankenPHP & Laravel Octane)."
+  tagline: "The autonomous runtime guardian and static analysis engine for persistent PHP workers (FrankenPHP, RoadRunner, Swoole, Symfony, Laravel & Vanilla)."
   actions:
     - theme: brand
       text: Get Started →
@@ -21,8 +21,8 @@ features:
     details: Direct /proc/self/statm inspection on Linux to track actual Resident Set Size and catch native C-extension memory growth outside the Zend VM heap.
   - title: Automated Transaction Guard
     details: Inspects active PDO connections at request termination, detects forgotten transactions, logs diagnostic warnings, and executes safe rollbacks.
-  - title: Defensive State Rollback
-    details: Automatically restores default timezones, unclosed output buffers, and error reporting levels at the end of every worker cycle.
+  - title: Defensive State Rollback & Resettables
+    details: Automatically restores timezones, unclosed output buffers, and resets registered services or #[ResetOnRequest] properties with zero reflection in hot path.
   - title: Graceful Worker Recycling
     details: Intercepts requests when configured RSS memory ceilings or request limits are reached, ensuring active requests complete cleanly.
   - title: Static Worker Linter CLI
@@ -63,6 +63,10 @@ FrankenPhp::run(
     config: new Config(
         maxDriftMb: 64,
         checkTransactions: true,
+        resettables: [
+            App\Services\CartSession::class,
+            fn () => LegacyStatic::$cache = [],
+        ],
     ),
 );
 ```

@@ -20,9 +20,7 @@ final class BanIncompatibleWorkerFunctionsRuleTest extends RuleTestCase
 
     public static function getAdditionalConfigFiles(): array
     {
-        return [
-            __DIR__.'/../../../../packages/dev/extension.neon',
-        ];
+        return [];
     }
 
     public function test_it_reports_incompatible_functions(): void
@@ -59,8 +57,12 @@ final class BanIncompatibleWorkerFunctionsRuleTest extends RuleTestCase
                     17,
                 ],
                 [
-                    'Function imap_open() belongs to the ext-imap extension which is not thread-safe and unsupported in FrankenPHP. Use a modern userland package like DirectoryTree/ImapEngine or webklex/php-imap instead.',
+                    'The GLOB_BRACE flag in glob() is unsupported in FrankenPHP Alpine-based Docker images (musl libc). glob() will fail and return false. Use multiple glob() calls or Symfony Finder instead.',
                     18,
+                ],
+                [
+                    'Function imap_open() belongs to the ext-imap extension which is not thread-safe and unsupported in FrankenPHP. Use a modern userland package like DirectoryTree/ImapEngine or webklex/php-imap instead.',
+                    21,
                 ],
             ],
         );

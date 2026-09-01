@@ -84,3 +84,42 @@ class DatabaseSchemaRegistry
     public static array $tableDefinitions = [];
 }
 ```
+
+---
+
+## 4. O Atributo `#[ResetOnRequest]`
+
+Utilize este atributo em classes, propriedades ou métodos para declarar estado que deve ser automaticamente restaurado para os valores padrão no término de cada requisição:
+
+```php
+use TheMattos\Leakless\Attributes\ResetOnRequest;
+
+class UserSessionContext
+{
+    // Restaura o valor padrão [] ao término da requisição
+    #[ResetOnRequest(default: [])]
+    public array $permissions = [];
+
+    // Restaura o valor padrão null
+    #[ResetOnRequest]
+    public static ?string $activeToken = null;
+
+    // Executa método de limpeza customizado no encerramento da requisição
+    #[ResetOnRequest(resetter: 'cleanup')]
+    public static array $inMemoryEvents = [];
+
+    public static function cleanup(): void
+    {
+        self::$inMemoryEvents = [];
+    }
+}
+```
+
+### Alvos e Parâmetros Suportados
+
+| Parâmetro | Tipo | Padrão | Descrição |
+| :--- | :---: | :---: | :--- |
+| `resetter` | `string\|null` | `null` | Nome de método customizado na classe a ser invocado no reset. |
+| `default` | `mixed` | `null` | Valor de fallback explícito a ser atribuído à propriedade no reset. |
+| **Alvos do Atributo** | `Property`, `Class`, `Method` | — | Pode ser colocado em propriedades estáticas ou de instância, classes ou métodos de limpeza. |
+

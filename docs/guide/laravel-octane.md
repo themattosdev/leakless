@@ -54,6 +54,10 @@ return [
     'auto_recycle' => env('LEAKLESS_AUTO_RECYCLE', true),
 
     'log_violations' => env('LEAKLESS_LOG_VIOLATIONS', true),
+
+    'resettables' => [
+        // App\Services\CartSession::class,
+    ],
 ];
 ```
 
@@ -73,6 +77,27 @@ return [
 | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `bool` | `false` | Inspect `/proc/self/fd` for lingering file handles and sockets. |
 | `LEAKLESS_AUTO_RECYCLE` | `bool` | `true` | Automatically signal Octane worker stop on confirmed breach. |
 | `LEAKLESS_LOG_VIOLATIONS` | `bool` | `true` | Log diagnostic warnings when leaks or anomalies occur. |
+
+---
+
+## State Reset: Octane Flush vs. Leakless Resettables
+
+In persistent Laravel Octane applications, handling mutable state in singletons or legacy services is a common challenge. You have multiple options to manage state reset:
+
+### 1. Laravel Octane Native Mechanisms
+- **Scoped Bindings**: Register services via `$this->app->scoped(UserContext::class)`, flushing instances between requests.
+- **Octane Flush List**: Add service class names to `config/octane.php` under the `'flush'` key to forget instances on request termination.
+
+### 2. Leakless Resettables Engine
+- **`resettables` in `config/leakless.php`**: Register class strings, objects, or callbacks that need cleanups.
+- **Declarative `#[ResetOnRequest]` Attribute**: Annotate specific properties or classes to automatically revert to default values.
+- **Zero-Reflection in Hot Path**: Compiles reset closures at worker startup, ensuring pure native execution during request cycles.
+
+### Which One Should You Use?
+Leakless is designed to be fully modular and flexible. **It is at your own discretion which approach to use:**
+- You can use Laravel Octane's native `scoped()` and `'flush'` mechanisms.
+- You can use Leakless's `resettables` and `#[ResetOnRequest]` for fine-grained property resets or legacy callbacks.
+- Or you can combine both seamlessly in the same application.
 
 ---
 

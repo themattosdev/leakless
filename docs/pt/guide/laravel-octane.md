@@ -54,6 +54,10 @@ return [
     'auto_recycle' => env('LEAKLESS_AUTO_RECYCLE', true),
 
     'log_violations' => env('LEAKLESS_LOG_VIOLATIONS', true),
+
+    'resettables' => [
+        // App\Services\CartSession::class,
+    ],
 ];
 ```
 
@@ -73,6 +77,27 @@ return [
 | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `bool` | `false` | Inspeciona `/proc/self/fd` para detectar arquivos e sockets esquecidos abertos. |
 | `LEAKLESS_AUTO_RECYCLE` | `bool` | `true` | Sinaliza parada graciosa do worker ao Octane em caso de violação confirmada. |
 | `LEAKLESS_LOG_VIOLATIONS` | `bool` | `true` | Registra logs detalhados quando anomalias ou vazamentos são interceptados. |
+
+---
+
+## Reset de Estado: Octane Flush vs. Leakless Resettables
+
+Em aplicações persistentes com Laravel Octane, gerenciar estado mutável em singletons ou serviços legados é um desafio comum. Você tem diferentes opções para lidar com o reset de estado:
+
+### 1. Mecanismos Nativos do Laravel Octane
+- **Bindings Scoped**: Registre serviços via `$this->app->scoped(UserContext::class)` para descartar instâncias entre requisições.
+- **Lista Flush do Octane**: Liste classes em `config/octane.php` sob a chave `'flush'` para remover instâncias do container no término da requisição.
+
+### 2. Motor de Resettables do Leakless
+- **`resettables` em `config/leakless.php`**: Registre classes, instâncias ou callbacks que precisam de limpeza.
+- **Atributo Declarativo `#[ResetOnRequest]`**: Anote propriedades ou classes para restaurar automaticamente os valores iniciais.
+- **Zero Reflection no Hot Path**: Compila closures de reset no warmup do worker, garantindo execução nativa pura durante o ciclo de requisições.
+
+### Qual Abordagem Utilizar?
+O Leakless foi desenvolvido para ser flexível e não invasivo. **Fica a seu próprio critério qual abordagem escolher:**
+- Você pode utilizar os mecanismos nativos do Octane (`scoped()` e `'flush'`).
+- Você pode utilizar o `resettables` e o `#[ResetOnRequest]` do Leakless para controle granular de propriedades ou callbacks em código legado.
+- Ou pode combinar ambas as soluções harmonicamente na mesma aplicação.
 
 ---
 

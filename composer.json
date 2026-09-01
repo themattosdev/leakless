@@ -18,10 +18,13 @@
     },
     "require-dev": {
         "laravel/pint": "^1.18",
+        "nunomaduro/phpinsights": "^2.11 || ^2.14",
+        "nyholm/psr7": "^1.8",
         "orchestra/testbench": "^9.0 || ^10.0",
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-arch": "^3.0",
         "phpstan/phpstan": "^2.0",
+        "psr/http-server-middleware": "^1.0",
         "themattosdev/leakless-dev": "*@dev"
     },
     "repositories": [
@@ -55,12 +58,14 @@
     },
     "config": {
         "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
             "pestphp/pest-plugin": true
         },
         "sort-packages": true
     },
     "scripts": {
         "test": "vendor/bin/pest",
+        "test:coverage": "vendor/bin/pest --coverage --min=100",
         "lint": "vendor/bin/pint --test",
         "lint:fix": "vendor/bin/pint",
         "analyse": "vendor/bin/phpstan analyse --memory-limit=512M"

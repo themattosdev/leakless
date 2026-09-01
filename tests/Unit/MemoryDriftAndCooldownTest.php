@@ -128,6 +128,7 @@ test('it requires consecutive violations threshold (hysteresis) before triggerin
 
 test('it respects recycling cooldown window and prevents restart storms', function () {
     $recycleCount = 0;
+    $logged = [];
 
     $config = new Config(
         maxDriftMb: 50,
@@ -135,6 +136,10 @@ test('it respects recycling cooldown window and prevents restart storms', functi
         recycleCooldownSeconds: 30,
         driftJitterPercentage: 0,
         triggerGcOnBreach: false,
+        logViolations: true,
+        logger: function (string $msg) use (&$logged): void {
+            $logged[] = $msg;
+        },
     );
 
     $fakeStatm = tempnam(sys_get_temp_dir(), 'leakless_cooldown_statm_');
@@ -170,7 +175,8 @@ test('it respects recycling cooldown window and prevents restart storms', functi
     expect($r2->shouldRecycle)->toBeFalse()
         ->and($r2->cooldownActive)->toBeTrue()
         ->and($recycleCount)->toBe(1)
-        ->and($r2->recycleReason)->toContain('cooldown window (30s)');
+        ->and($r2->recycleReason)->toContain('cooldown window (30s)')
+        ->and($logged)->toContain('[Leakless] ⏳ '.$r2->recycleReason);
 
     // Simulate passage of 31 seconds
     $guardian->setLastRecycleTimestamp(microtime(true) - 31);

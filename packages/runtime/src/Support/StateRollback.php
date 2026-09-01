@@ -14,9 +14,33 @@ final class StateRollback
 
     private int $initialErrorReporting;
 
-    public function __construct()
+    private readonly StateResetter $stateResetter;
+
+    public function __construct(?StateResetter $stateResetter = null)
     {
+        $this->stateResetter = $stateResetter ?? new StateResetter;
         $this->captureInitialState();
+    }
+
+    public function getStateResetter(): StateResetter
+    {
+        return $this->stateResetter;
+    }
+
+    /**
+     * @param  class-string<object>|object|callable  $target
+     */
+    public function registerResetTarget(string|object|callable $target): void
+    {
+        $this->stateResetter->registerTarget($target);
+    }
+
+    /**
+     * @param  array<int, class-string<object>|object|callable>  $targets
+     */
+    public function registerResetTargets(array $targets): void
+    {
+        $this->stateResetter->registerTargets($targets);
     }
 
     /**
@@ -36,22 +60,36 @@ final class StateRollback
      */
     public function rollback(): void
     {
-        // 1. Restore default timezone if changed
+        $this->restoreTimezone();
+        $this->restoreWorkingDirectory();
+        $this->drainOutputBuffers();
+        $this->restoreErrorReporting();
+        $this->stateResetter->resetAll();
+    }
+
+    private function restoreTimezone(): void
+    {
         if (date_default_timezone_get() !== $this->initialTimezone) {
             date_default_timezone_set($this->initialTimezone);
         }
+    }
 
-        // 2. Restore current working directory if changed
+    private function restoreWorkingDirectory(): void
+    {
         if ($this->initialWorkingDir !== null && getcwd() !== $this->initialWorkingDir) {
             @chdir($this->initialWorkingDir);
         }
+    }
 
-        // 3. Drain residual output buffers opened during the request
+    private function drainOutputBuffers(): void
+    {
         while (ob_get_level() > $this->initialObLevel) {
             @ob_end_clean();
         }
+    }
 
-        // 4. Restore error reporting level if modified
+    private function restoreErrorReporting(): void
+    {
         if (error_reporting() !== $this->initialErrorReporting) {
             error_reporting($this->initialErrorReporting);
         }

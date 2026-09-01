@@ -19,11 +19,13 @@ test('it instantiates with default parameters', function () {
         ->and($config->triggerGcOnBreach)->toBeTrue()
         ->and($config->driftJitterPercentage)->toBe(10)
         ->and($config->logViolations)->toBeTrue()
-        ->and($config->onReport)->toBeNull();
+        ->and($config->onReport)->toBeNull()
+        ->and($config->resettables)->toBe([]);
 });
 
 test('it accepts custom named arguments', function () {
     $callback = function (Report $report): void {};
+    $dummyResettable = fn () => null;
 
     $config = new Config(
         maxDriftMb: 128,
@@ -38,6 +40,7 @@ test('it accepts custom named arguments', function () {
         driftJitterPercentage: 0,
         logViolations: false,
         onReport: $callback,
+        resettables: [$dummyResettable],
     );
 
     expect($config->maxDriftMb)->toBe(128)
@@ -51,7 +54,8 @@ test('it accepts custom named arguments', function () {
         ->and($config->triggerGcOnBreach)->toBeFalse()
         ->and($config->driftJitterPercentage)->toBe(0)
         ->and($config->logViolations)->toBeFalse()
-        ->and($config->onReport)->toBe($callback);
+        ->and($config->onReport)->toBe($callback)
+        ->and($config->resettables)->toBe([$dummyResettable]);
 });
 
 test('it throws exception for invalid maxDriftMb', function () {

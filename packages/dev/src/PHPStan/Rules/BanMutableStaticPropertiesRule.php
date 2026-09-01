@@ -10,6 +10,7 @@ use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 use TheMattos\Leakless\Attributes\AllowPersistentState;
+use TheMattos\Leakless\Attributes\ResetOnRequest;
 
 /**
  * @implements Rule<Property>
@@ -20,6 +21,9 @@ final class BanMutableStaticPropertiesRule implements Rule
         AllowPersistentState::class,
         'AllowPersistentState',
         'TheMattos\Leakless\Attributes\AllowPersistentState',
+        ResetOnRequest::class,
+        'ResetOnRequest',
+        'TheMattos\Leakless\Attributes\ResetOnRequest',
     ];
 
     public function getNodeType(): string
@@ -41,16 +45,16 @@ final class BanMutableStaticPropertiesRule implements Rule
             return [];
         }
 
-        // Check if property itself has #[AllowPersistentState]
+        // Check if property itself has allowed attribute
         if ($this->hasAllowedAttribute($node->attrGroups)) {
             return [];
         }
 
-        // Check if enclosing class has #[AllowPersistentState]
+        // Check if enclosing class has allowed attribute
         $classReflection = $scope->getClassReflection();
         if ($classReflection !== null) {
             $nativeReflection = $classReflection->getNativeReflection();
-            if (count($nativeReflection->getAttributes(AllowPersistentState::class)) > 0) {
+            if ($this->hasClassAllowedAttribute($nativeReflection)) {
                 return [];
             }
         }
@@ -87,5 +91,14 @@ final class BanMutableStaticPropertiesRule implements Rule
         }
 
         return false;
+    }
+
+    /**
+     * @param  \ReflectionClass<object>  $reflection
+     */
+    private function hasClassAllowedAttribute(\ReflectionClass $reflection): bool
+    {
+        return count($reflection->getAttributes(AllowPersistentState::class)) > 0
+            || count($reflection->getAttributes(ResetOnRequest::class)) > 0;
     }
 }

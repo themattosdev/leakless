@@ -23,6 +23,10 @@ $config = new Config(
     checkFileDescriptors: false,        // Audit unclosed file handles (/proc/self/fd)
     autoRecycleOnViolation: true,       // Graceful worker recycling when breached
     logViolations: true,                // Emit warnings on anomalies
+    resettables: [                      // Array of class-strings, objects, or callbacks to auto-reset
+        App\Services\CartSession::class,
+        fn () => LegacyRegistry::$cache = [],
+    ],
 );
 ```
 
@@ -71,4 +75,5 @@ php artisan vendor:publish --tag="leakless-config"
 | `check_file_descriptors` | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `false` | Inspects `/proc/self/fd` for unclosed file handles and lingering network sockets. |
 | `auto_recycle` | `LEAKLESS_AUTO_RECYCLE` | `true` | Automatically stops the worker when thresholds or persistent corruption are confirmed. |
 | `log_violations` | `LEAKLESS_LOG_VIOLATIONS` | `true` | Emits diagnostic logs when uncommitted transactions or state leaks are caught. |
+| `resettables` | — | `[]` | List of class-strings, objects, or callbacks to automatically reset at the end of each request. |
 
