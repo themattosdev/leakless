@@ -65,20 +65,23 @@ test('laravel singletons maintain stateless properties', function () {
 
 ---
 
-## 2. PHPUnit Native Assertions (`AssertsLeakless`)
+## 2. PHPUnit Assertions
 
-If your project uses standard PHPUnit `TestCase` classes instead of Pest, use the `AssertsLeakless` trait:
+For projects using traditional PHPUnit (`TestCase`) or standalone static calls, Leakless offers two approaches:
+
+### A. Instance Trait (`InteractsWithLeakless`)
+Use the `InteractsWithLeakless` trait inside your `TestCase` to access native assertions via `$this->`:
 
 ```php
 namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use TheMattos\Leakless\Dev\PHPUnit\AssertsLeakless;
+use TheMattos\Leakless\Dev\Concerns\InteractsWithLeakless;
 use App\Services\PaymentService;
 
 final class PaymentServiceTest extends TestCase
 {
-    use AssertsLeakless;
+    use InteractsWithLeakless;
 
     public function test_service_is_worker_safe(): void
     {
@@ -102,14 +105,27 @@ final class PaymentServiceTest extends TestCase
 }
 ```
 
-### Available PHPUnit Methods
+### B. Static Engine (`LeaklessAssert`)
+If you prefer calling assertions statically (just like `PHPUnit\Framework\Assert`), use the `LeaklessAssert` class:
+
+```php
+use TheMattos\Leakless\Dev\PHPUnit\LeaklessAssert;
+use App\Services\PaymentService;
+
+LeaklessAssert::assertIsLeakless(PaymentService::class);
+LeaklessAssert::assertRunsCleanly(fn () => doSomething(), maxDriftMb: 0.25);
+```
+
+---
+
+### Available Assertion Methods
 
 | Method | Description |
 | :--- | :--- |
-| `$this->assertIsLeakless($target)` | Asserts a class/object contains no mutable static state or illegal injections. |
-| `$this->assertRunsCleanly($callable, $config, $maxDriftMb)` | Executes a callback under Leakless and asserts clean state. |
-| `$this->assertResetsContainerState($target, $callback, $msg, $maxDepth)` | Snapshots object instances or container singletons to assert clean state. |
-| `$this->assertStatelessInstances($target, $callback, $msg, $maxDepth)` | Alias for `assertResetsContainerState`. |
-| `$this->assertNoDanglingTransactions($reportOrResponse)` | Asserts no uncommitted PDO transactions remained. |
-| `$this->assertCleanWorkerState($reportOrResponse)` | Asserts the worker state is completely clean after handling. |
-| `$this->assertNoMemoryDrift($reportOrResponse, $maxMb)` | Asserts physical memory drift did not exceed threshold. |
+| `assertIsLeakless($target)` | Asserts that a class/object contains no mutable static properties or illegal ephemeral injections. |
+| `assertRunsCleanly($callable, $config, $maxDriftMb)` | Executes a callback under Leakless observation and asserts clean state. |
+| `assertResetsContainerState($target, $callback, $msg, $maxDepth)` | Snapshots object/container singleton properties to verify zero state retention. |
+| `assertStatelessInstances($target, $callback, $msg, $maxDepth)` | Alias for `assertResetsContainerState`. |
+| `assertNoDanglingTransactions($reportOrResponse)` | Asserts that no uncommitted PDO database transactions remained open. |
+| `assertCleanWorkerState($reportOrResponse)` | Asserts that the worker state finished 100% clean. |
+| `assertNoMemoryDrift($reportOrResponse, $maxMb)` | Asserts that kernel physical RSS memory drift remained within the allowed limit. |

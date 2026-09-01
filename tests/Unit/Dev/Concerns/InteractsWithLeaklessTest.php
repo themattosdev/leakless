@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Dev\PHPUnit;
+namespace Tests\Unit\Dev\Concerns;
 
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
 use TheMattos\Leakless\Attributes\AllowPersistentState;
-use TheMattos\Leakless\Dev\PHPUnit\AssertsLeakless;
+use TheMattos\Leakless\Dev\Concerns\InteractsWithLeakless;
 use TheMattos\Leakless\DTOs\ProcessMetrics;
 use TheMattos\Leakless\DTOs\Report;
 
-final class AssertsLeaklessTest extends TestCase
+final class InteractsWithLeaklessTest extends TestCase
 {
-    use AssertsLeakless;
+    use InteractsWithLeakless;
 
     public function test_it_passes_for_clean_class(): void
     {

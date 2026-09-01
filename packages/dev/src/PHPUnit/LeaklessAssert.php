@@ -14,9 +14,9 @@ use TheMattos\Leakless\DTOs\Report;
 use TheMattos\Leakless\Leakless;
 
 /**
- * Trait providing PHPUnit assertions for validating persistent worker safety and state hygiene.
+ * Static assertion engine for persistent worker safety and state hygiene.
  */
-trait AssertsLeakless
+final class LeaklessAssert
 {
     /**
      * Asserts that object instances or container singletons maintain clean/stateless properties across callback executions.

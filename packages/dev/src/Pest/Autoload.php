@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Pest\Expectation;
 use PHPUnit\Framework\Assert;
-use TheMattos\Leakless\Dev\PHPUnit\AssertsLeakless;
+use TheMattos\Leakless\Dev\PHPUnit\LeaklessAssert;
 
 if (function_exists('expect')) {
     /**
@@ -21,7 +21,7 @@ if (function_exists('expect')) {
         }
 
         /** @var class-string|object $target */
-        AssertsLeakless::assertIsLeakless($target);
+        LeaklessAssert::assertIsLeakless($target);
 
         return $this;
     });
@@ -39,7 +39,7 @@ if (function_exists('expect')) {
             Assert::fail('Expected value must be a callable closure.');
         }
 
-        AssertsLeakless::assertRunsCleanly($callable, maxDriftMb: $maxDriftMb);
+        LeaklessAssert::assertRunsCleanly($callable, maxDriftMb: $maxDriftMb);
 
         return $this;
     });
@@ -53,7 +53,7 @@ if (function_exists('expect')) {
     expect()->extend('toResetContainerState', function (callable $callback, int $maxDepth = 4): Expectation {
         $target = $this->value;
 
-        AssertsLeakless::assertResetsContainerState($target, $callback, maxDepth: $maxDepth);
+        LeaklessAssert::assertResetsContainerState($target, $callback, maxDepth: $maxDepth);
 
         return $this;
     });
@@ -64,7 +64,7 @@ if (function_exists('expect')) {
     expect()->extend('toHaveStatelessInstances', function (callable $callback, int $maxDepth = 4): Expectation {
         $target = $this->value;
 
-        AssertsLeakless::assertStatelessInstances($target, $callback, maxDepth: $maxDepth);
+        LeaklessAssert::assertStatelessInstances($target, $callback, maxDepth: $maxDepth);
 
         return $this;
     });

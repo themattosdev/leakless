@@ -8,7 +8,7 @@ use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\AssertionFailedError;
 use TheMattos\Leakless\Attributes\AllowPersistentState;
-use TheMattos\Leakless\Dev\PHPUnit\AssertsLeakless;
+use TheMattos\Leakless\Dev\Concerns\InteractsWithLeakless;
 use TheMattos\Leakless\Integrations\Laravel\LeaklessServiceProvider;
 
 class LeakyTenantService
@@ -48,7 +48,7 @@ class AllowedCacheService
 
 final class ContainerStateResetTest extends TestCase
 {
-    use AssertsLeakless;
+    use InteractsWithLeakless;
 
     protected function getPackageProviders($app): array
     {
