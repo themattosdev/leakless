@@ -59,6 +59,7 @@ final readonly class Report
     public function isClean(): bool
     {
         return ! $this->shouldRecycle
+            && ! $this->cooldownActive
             && ! $this->danglingTransactionsDetected
             && ! $this->fileDescriptorsLeaked;
     }

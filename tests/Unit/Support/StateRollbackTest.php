@@ -49,3 +49,20 @@ test('it restores error reporting levels', function () {
 
     expect(error_reporting())->toBe($initialReporting);
 });
+
+test('it restores working directory when changed during request', function () {
+    $initialDir = getcwd();
+    if ($initialDir === false) {
+        return;
+    }
+
+    $rollback = new StateRollback;
+
+    chdir(sys_get_temp_dir());
+    expect(getcwd())->toBe(sys_get_temp_dir());
+
+    $rollback->rollback();
+
+    expect(getcwd())->toBe($initialDir);
+});
+

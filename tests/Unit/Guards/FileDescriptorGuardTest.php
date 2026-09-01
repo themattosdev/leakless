@@ -66,6 +66,38 @@ test('it falls back gracefully when proc path is invalid or inaccessible', funct
         ->and($audit['leakedCount'])->toBe(0);
 });
 
+test('it handles mock proc directory with non links and special entries', function () {
+    $tmpDir = sys_get_temp_dir().'/leakless_test_fd_'.uniqid();
+    mkdir($tmpDir);
+
+    // Regular file (not link) named with digits
+    file_put_contents($tmpDir.'/10', 'not a link');
+    // Non-digit entry
+    file_put_contents($tmpDir.'/abc', 'non digit');
+    // Symlink pointing to proc/fd
+    symlink('/proc/self/fd', $tmpDir.'/11');
+    // Symlink pointing to regular file
+    symlink($tmpDir.'/10', $tmpDir.'/12');
+
+    $guard = new FileDescriptorGuard($tmpDir);
+    $descriptors = $guard->captureOpenDescriptors();
+
+    expect($descriptors)->toHaveKey(12)
+        ->and($descriptors)->not->toHaveKey(10)
+        ->and($descriptors)->not->toHaveKey(11);
+
+    $audit = $guard->audit([]);
+    expect($audit['detected'])->toBeTrue()
+        ->and($audit['leakedCount'])->toBe(1);
+
+    @unlink($tmpDir.'/12');
+    @unlink($tmpDir.'/11');
+    @unlink($tmpDir.'/abc');
+    @unlink($tmpDir.'/10');
+    @rmdir($tmpDir);
+});
+
+
 test('leakless lifecycle records file descriptor leaks in report', function () {
     $config = new Config(
         checkFileDescriptors: true,

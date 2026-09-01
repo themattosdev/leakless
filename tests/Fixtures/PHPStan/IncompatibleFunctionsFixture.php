@@ -15,6 +15,10 @@ class IncompatibleFunctionsFixture
         session_id('custom_session');
         flush();
         glob('*.{php,md}', GLOB_BRACE);
+        glob('*.{php,md}', GLOB_BRACE | GLOB_NOSORT);
+        glob('*.php');
+        strlen('safe');
         imap_open('{localhost:993/imap/ssl}INBOX', 'user', 'pass');
     }
 }
+

@@ -55,3 +55,18 @@ test('it breaks the worker loop when runner returns false', function () {
     expect($runs)->toBe(2)
         ->and($guardian->getRequestCount())->toBe(2);
 });
+
+test('it executes app via direct invocation fallback or native frankenphp handler', function () {
+    $executed = 0;
+
+    $guardian = FrankenPhp::run(
+        app: function () use (&$executed): void {
+            $executed++;
+        },
+        maxLoops: 2,
+    );
+
+    expect($executed)->toBeGreaterThanOrEqual(1)
+        ->and($guardian->getRequestCount())->toBeGreaterThanOrEqual(1);
+});
+

@@ -90,4 +90,33 @@ final class InteractsWithLeaklessTest extends TestCase
 
         $this->assertNoDanglingTransactions($report);
     }
+
+    public function test_it_fails_when_target_is_invalid_in_assert_is_leakless(): void
+    {
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('Expected value must be a valid class-string or an object.');
+
+        $this->assertIsLeakless('NonExistentClassString');
+    }
+
+    public function test_it_fails_when_container_target_has_no_instances(): void
+    {
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('No valid object instances or container singletons found');
+
+        $this->assertResetsContainerState([], fn () => null);
+    }
+
+    public function test_it_asserts_stateless_instances_successfully(): void
+    {
+        $cleanService = new class
+        {
+            public string $name = 'initial';
+        };
+
+        $this->assertStatelessInstances($cleanService, function () {
+            // pure logic without mutating $cleanService
+        });
+    }
 }
+

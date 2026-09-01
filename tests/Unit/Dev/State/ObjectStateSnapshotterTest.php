@@ -186,3 +186,71 @@ test('it respects custom maxDepth parameter during object inspection', function 
     $mutationsDeep = $snapshotter->compare($instances, $beforeDeep, $afterDeep);
     expect($mutationsDeep)->not->toBeEmpty();
 });
+
+test('it extracts instances from generic psr-11 container', function () {
+    $container = new class implements \Psr\Container\ContainerInterface
+    {
+        public array $services = [];
+
+        public array $singletons = [];
+
+        public function get(string $id): mixed
+        {
+            return $this->services[$id] ?? null;
+        }
+
+        public function has(string $id): bool
+        {
+            return isset($this->services[$id]);
+        }
+    };
+
+    $s1 = new SimpleCleanService;
+    $s2 = new MutableService;
+    $container->services = [$s1];
+    $container->singletons = [$s2];
+
+    $snapshotter = new ObjectStateSnapshotter;
+    expect($snapshotter->extractInstances($container))->toHaveCount(2)
+        ->and($snapshotter->extractInstances('non_object'))->toBeEmpty();
+});
+
+test('it serializes closures, nested containers, and resources safely', function () {
+    $container = new class implements \Psr\Container\ContainerInterface
+    {
+        public function get(string $id): mixed
+        {
+            return null;
+        }
+
+        public function has(string $id): bool
+        {
+            return false;
+        }
+    };
+
+    $fp = tmpfile();
+
+    $complexService = new class($container, $fp)
+    {
+        public Closure $callback;
+
+        public function __construct(
+            public \Psr\Container\ContainerInterface $container,
+            public mixed $resource,
+        ) {
+            $this->callback = fn () => true;
+        }
+    };
+
+    $snapshotter = new ObjectStateSnapshotter;
+    $instances = [$complexService];
+
+    $before = $snapshotter->snapshot($instances);
+    expect($before)->not->toBeEmpty();
+
+    if (is_resource($fp)) {
+        fclose($fp);
+    }
+});
+

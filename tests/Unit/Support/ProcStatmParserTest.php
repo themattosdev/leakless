@@ -41,3 +41,12 @@ test('it can read from real system /proc when available on Linux', function () {
         expect($parser->isLinuxProcAvailable())->toBeFalse();
     }
 });
+
+test('it handles non existent statm path gracefully', function () {
+    $parser = new ProcStatmParser('/non/existent/proc/statm');
+    expect($parser->isLinuxProcAvailable())->toBeFalse();
+
+    $metrics = $parser->parse();
+    expect($metrics->rssBytes)->toBeGreaterThan(0);
+});
+

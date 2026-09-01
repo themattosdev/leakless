@@ -118,8 +118,35 @@ test('it executes analyze command when analysis engine fails', function () {
 
 test('application boots with default version and analyze command', function () {
     $app = new Application;
+    $app->setAutoExit(false);
+
+    $tester = new \Symfony\Component\Console\Tester\ApplicationTester($app);
+    $exitCode = $tester->run(['--help' => true]);
 
     expect($app->getName())->toBe('Leakless')
         ->and($app->getVersion())->toBe(Application::VERSION)
-        ->and($app->has('analyze'))->toBeTrue();
+        ->and($app->has('analyze'))->toBeTrue()
+        ->and($exitCode)->toBe(0);
 });
+
+test('it executes analyze command with default paths when none provided', function () {
+    $runner = function (array $cmd): array {
+        return [
+            0,
+            json_encode([
+                'totals' => ['errors' => 0, 'file_errors' => 0],
+                'files' => [],
+            ]) ?: '{}',
+            '',
+        ];
+    };
+
+    $command = new AnalyzeCommand($runner);
+    $tester = new CommandTester($command);
+
+    $exitCode = $tester->execute([]);
+
+    expect($exitCode)->toBe(Command::SUCCESS);
+});
+
+

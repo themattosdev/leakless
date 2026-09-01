@@ -171,3 +171,66 @@ test('it automatically logs violations when state is dirty', function () {
         ->and($loggedMessages[0])->toContain('[Leakless] 🚨 Dangling database transaction(s) detected')
         ->and($loggedMessages[1])->toContain('[Leakless] ⚠️ Worker recycling triggered');
 });
+
+test('it exposes internal getters and resets', function () {
+    $guardian = new Leakless;
+    expect($guardian->getConfig())->toBeInstanceOf(Config::class)
+        ->and($guardian->getTransactionGuard())->toBeInstanceOf(\TheMattos\Leakless\Guards\TransactionGuard::class)
+        ->and($guardian->getFileDescriptorGuard())->toBeInstanceOf(\TheMattos\Leakless\Guards\FileDescriptorGuard::class)
+        ->and($guardian->getStateRollback())->toBeInstanceOf(\TheMattos\Leakless\Support\StateRollback::class);
+
+    $guardian->startRequest();
+    expect($guardian->getRequestCount())->toBe(1);
+    $guardian->resetRequestCount();
+    expect($guardian->getRequestCount())->toBe(0);
+
+    $guardian->resetConsecutiveViolations();
+    expect($guardian->getConsecutiveViolations())->toBe(0);
+
+    $now = microtime(true);
+    $guardian->setLastRecycleTimestamp($now);
+    expect($guardian->getLastRecycleTimestamp())->toBe($now);
+});
+
+test('it handles null max drift and disabled transactions checks', function () {
+    $config = new Config(
+        maxDriftMb: null,
+        checkTransactions: false,
+    );
+
+    $guardian = new Leakless($config);
+    expect($guardian->getEffectiveDriftLimitMb())->toBeNull();
+
+    // Call endRequest directly without startRequest
+    $report = $guardian->endRequest();
+    expect($report->isClean())->toBeTrue()
+        ->and($report->durationMs)->toBe(0.0);
+});
+
+test('it logs file descriptor leaks and cooldown active state', function () {
+    $logged = [];
+    $config = new Config(
+        maxRssMb: 256,
+        checkFileDescriptors: true,
+        logViolations: true,
+        logger: function (string $msg) use (&$logged): void {
+            $logged[] = $msg;
+        },
+    );
+
+    $guardian = new Leakless($config);
+    $guardian->startRequest();
+
+    $tmp = tmpfile();
+
+    $guardian->endRequest();
+
+    if (is_resource($tmp)) {
+        fclose($tmp);
+    }
+
+    if (is_dir('/proc/self/fd')) {
+        expect($logged)->not->toBeEmpty();
+    }
+});
+
