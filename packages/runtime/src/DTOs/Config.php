@@ -23,6 +23,7 @@ final readonly class Config
      * @param  bool  $logViolations  Whether to automatically output warnings to stderr/error_log on detected violations.
      * @param  (Closure(string, Report): void)|null  $logger  Optional custom logger closure for violation messages.
      * @param  (Closure(Report): void)|null  $onReport  Optional telemetry closure executed after each audited request.
+     * @param  array<int, class-string<object>|object|callable>  $resettables  Optional list of class strings, objects, or callbacks to reset at the end of each request.
      */
     public function __construct(
         public ?int $maxDriftMb = 64,
@@ -38,6 +39,7 @@ final readonly class Config
         public bool $logViolations = true,
         public ?Closure $logger = null,
         public ?Closure $onReport = null,
+        public array $resettables = [],
     ) {
         $this->validateLimits();
         $this->validateTuning();

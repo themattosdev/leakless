@@ -7,6 +7,7 @@ namespace TheMattos\Leakless\Dev\Support;
 use ReflectionClass;
 use ReflectionNamedType;
 use TheMattos\Leakless\Attributes\AllowPersistentState;
+use TheMattos\Leakless\Attributes\ResetOnRequest;
 
 final class ClassLeakInspector
 {
@@ -43,7 +44,7 @@ final class ClassLeakInspector
      */
     private function inspectStaticProperties(ReflectionClass $reflection): array
     {
-        if (count($reflection->getAttributes(AllowPersistentState::class)) > 0) {
+        if ($this->hasAllowedStateAttribute($reflection)) {
             return [];
         }
 
@@ -70,7 +71,16 @@ final class ClassLeakInspector
             return false;
         }
 
-        return count($property->getAttributes(AllowPersistentState::class)) === 0;
+        return ! $this->hasAllowedStateAttribute($property);
+    }
+
+    /**
+     * @param  ReflectionClass<object>|\ReflectionProperty  $reflector
+     */
+    private function hasAllowedStateAttribute(ReflectionClass|\ReflectionProperty $reflector): bool
+    {
+        return count($reflector->getAttributes(AllowPersistentState::class)) > 0
+            || count($reflector->getAttributes(ResetOnRequest::class)) > 0;
     }
 
     /**

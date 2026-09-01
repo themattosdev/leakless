@@ -137,4 +137,17 @@ return [
     |
     */
     'log_violations' => env('LEAKLESS_LOG_VIOLATIONS', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resettables Targets & Callbacks
+    |--------------------------------------------------------------------------
+    |
+    | List of class strings, object instances, or callbacks to automatically
+    | reset at the end of each request in persistent workers.
+    |
+    */
+    'resettables' => [
+        // App\Services\CartSession::class,
+    ],
 ];

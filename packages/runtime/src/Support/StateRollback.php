@@ -14,9 +14,33 @@ final class StateRollback
 
     private int $initialErrorReporting;
 
-    public function __construct()
+    private readonly StateResetter $stateResetter;
+
+    public function __construct(?StateResetter $stateResetter = null)
     {
+        $this->stateResetter = $stateResetter ?? new StateResetter;
         $this->captureInitialState();
+    }
+
+    public function getStateResetter(): StateResetter
+    {
+        return $this->stateResetter;
+    }
+
+    /**
+     * @param  class-string<object>|object|callable  $target
+     */
+    public function registerResetTarget(string|object|callable $target): void
+    {
+        $this->stateResetter->registerTarget($target);
+    }
+
+    /**
+     * @param  array<int, class-string<object>|object|callable>  $targets
+     */
+    public function registerResetTargets(array $targets): void
+    {
+        $this->stateResetter->registerTargets($targets);
     }
 
     /**
@@ -40,6 +64,7 @@ final class StateRollback
         $this->restoreWorkingDirectory();
         $this->drainOutputBuffers();
         $this->restoreErrorReporting();
+        $this->stateResetter->resetAll();
     }
 
     private function restoreTimezone(): void

@@ -6,6 +6,7 @@ namespace Tests\Unit\Dev\Support;
 
 use Illuminate\Http\Request;
 use TheMattos\Leakless\Attributes\AllowPersistentState;
+use TheMattos\Leakless\Attributes\ResetOnRequest;
 use TheMattos\Leakless\Dev\Support\ClassLeakInspector;
 
 class InspectorCleanService
@@ -51,6 +52,20 @@ class InspectorClassAllowedService
     public static array $cache = [];
 }
 
+#[ResetOnRequest]
+class InspectorClassResetOnRequestService
+{
+    /** @var array<string, mixed> */
+    public static array $items = [];
+}
+
+class InspectorPropertyResetOnRequestService
+{
+    /** @var array<string, mixed> */
+    #[ResetOnRequest]
+    public static array $items = [];
+}
+
 class InspectorLeakyService
 {
     /** @var array<string, mixed> */
@@ -70,6 +85,8 @@ test('it inspects classes and reports violations accurately', function () {
         ->and($inspector->inspect(InspectorUntypedService::class))->toBeEmpty()
         ->and($inspector->inspect(InspectorUnionService::class))->toBeEmpty()
         ->and($inspector->inspect(InspectorClassAllowedService::class))->toBeEmpty()
+        ->and($inspector->inspect(InspectorClassResetOnRequestService::class))->toBeEmpty()
+        ->and($inspector->inspect(InspectorPropertyResetOnRequestService::class))->toBeEmpty()
         ->and($inspector->inspect(InspectorPropertyAllowedService::class))->toBeEmpty();
 
     $violations = $inspector->inspect(InspectorLeakyService::class);

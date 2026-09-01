@@ -75,6 +75,10 @@ final class Leakless
         $this->stateRollback = $stateRollback ?? new StateRollback;
         $this->recycler = $recycler;
 
+        if (! empty($this->config->resettables)) {
+            $this->stateRollback->registerResetTargets($this->config->resettables);
+        }
+
         $this->calculateEffectiveDriftLimit();
     }
 
@@ -360,6 +364,35 @@ final class Leakless
     public function getStateRollback(): StateRollback
     {
         return $this->stateRollback;
+    }
+
+    public function getStateResetter(): Support\StateResetter
+    {
+        return $this->stateRollback->getStateResetter();
+    }
+
+    /**
+     * Register a class string, object instance, or callable to be automatically reset at the end of each request.
+     *
+     * @param  class-string<object>|object|callable  $target
+     */
+    public function registerResetTarget(string|object|callable $target): self
+    {
+        $this->stateRollback->registerResetTarget($target);
+
+        return $this;
+    }
+
+    /**
+     * Register multiple targets to be automatically reset at the end of each request.
+     *
+     * @param  array<int, class-string<object>|object|callable>  $targets
+     */
+    public function registerResetTargets(array $targets): self
+    {
+        $this->stateRollback->registerResetTargets($targets);
+
+        return $this;
     }
 
     public function resetRequestCount(): void

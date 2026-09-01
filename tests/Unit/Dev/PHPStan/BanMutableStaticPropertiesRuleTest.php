@@ -30,7 +30,7 @@ final class BanMutableStaticPropertiesRuleTest extends RuleTestCase
             [
                 [
                     'Mutable static property Tests\Fixtures\PHPStan\MutableStaticFixture::$leakyCache retention detected. In persistent worker environments (FrankenPHP/Octane), mutable static properties retain state across requests and leak data between users. Mark as readonly, convert to instance property, or annotate with #[AllowPersistentState] if intentionally cached.',
-                    11,
+                    12,
                 ],
             ],
         );
