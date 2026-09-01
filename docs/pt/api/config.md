@@ -23,6 +23,10 @@ $config = new Config(
     checkFileDescriptors: false,        // Inspeciona descritores de arquivos (/proc/self/fd)
     autoRecycleOnViolation: true,       // Reciclagem graciosa ao ultrapassar limites
     logViolations: true,                // Emite alertas de anomalias
+    resettables: [                      // Array de classes, instâncias ou callbacks para auto-reset
+        App\Services\CartSession::class,
+        fn () => LegacyRegistry::$cache = [],
+    ],
 );
 ```
 
@@ -71,3 +75,4 @@ php artisan vendor:publish --tag="leakless-config"
 | `check_file_descriptors` | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `false` | Inspeciona `/proc/self/fd` para detectar arquivos ou sockets de rede esquecidos abertos. |
 | `auto_recycle` | `LEAKLESS_AUTO_RECYCLE` | `true` | Dispara automaticamente a parada graciosa do worker quando limites ou corrupções persistirem. |
 | `log_violations` | `LEAKLESS_LOG_VIOLATIONS` | `true` | Emite logs diagnósticos quando transações órfãs ou anomalias de estado forem capturadas. |
+| `resettables` | — | `[]` | Lista de class-strings, objetos ou callbacks para resetar automaticamente ao final de cada requisição. |

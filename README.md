@@ -47,7 +47,14 @@ FrankenPHP::run(
     app: function () {
         echo json_encode(['status' => 'ok']);
     },
-    config: new Config(maxDriftMb: 64, maxRequests: 1000),
+    config: new Config(
+        maxDriftMb: 64,
+        maxRequests: 1000,
+        resettables: [
+            App\Services\CartSession::class,
+            fn () => LegacyRegistry::$cache = [],
+        ],
+    ),
 );
 ```
 
@@ -60,7 +67,35 @@ LEAKLESS_CHECK_TRANSACTIONS=true
 LEAKLESS_CHECK_FILE_DESCRIPTORS=false
 ```
 
-### 3. Automated Testing (Pest & PHPUnit)
+In `config/leakless.php`, you can also register classes or callbacks to auto-reset:
+
+```php
+'resettables' => [
+    App\Services\CartSession::class,
+    fn () => LegacyRegistry::$cache = [],
+],
+```
+
+> **Note regarding Laravel Octane:** Octane provides native `scoped()` bindings and a `'flush'` list in `config/octane.php`. Leakless provides its compiled zero-reflection `resettables` engine and `#[ResetOnRequest]` attribute. **It is at your own discretion which mechanism to use** — you can rely on Octane's native mechanisms, use Leakless's resettables, or combine both seamlessly.
+
+### 3. Declarative State Reset (`#[ResetOnRequest]`)
+
+Annotate properties or classes to automatically restore initial or default values between requests:
+
+```php
+use TheMattos\Leakless\Attributes\ResetOnRequest;
+
+class UserContext
+{
+    #[ResetOnRequest(default: [])]
+    public array $permissions = [];
+
+    #[ResetOnRequest]
+    public static ?string $token = null;
+}
+```
+
+### 4. Automated Testing (Pest & PHPUnit)
 
 ```php
 test('service executes cleanly without leaking memory or state', function () {

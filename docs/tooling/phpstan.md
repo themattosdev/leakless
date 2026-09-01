@@ -28,7 +28,7 @@ parameters:
 
 | Rule Class | What It Enforces |
 | :--- | :--- |
-| `BanMutableStaticPropertiesRule` | Disallows mutable `static` properties on classes unless marked with `#[AllowPersistentState]`. |
+| `BanMutableStaticPropertiesRule` | Disallows mutable `static` properties on classes unless marked with `#[AllowPersistentState]` or `#[ResetOnRequest]`. |
 | `BanEphemeralInjectionInSingletonsRule` | Prevents constructor injection of `Request` / `Session` in singleton services. |
 | `BanSuperglobalsAndTerminatorsRule` | Blocks direct `$_GET`, `$_POST`, `$_SESSION`, `exit()`, `die()`, and `session_start()`. |
 | `BanIncompatibleWorkerFunctionsRule` | Detects `get_browser()`, `GLOB_BRACE` on Alpine musl, `ext-imap`, and direct procedural headers. |

@@ -21,8 +21,8 @@ features:
     details: Leitura direta de /proc/self/statm no Linux para medir o Resident Set Size real e capturar alocações de extensões C fora da heap da Zend VM.
   - title: Transaction Guard Automatizado
     details: Inspeciona conexões PDO ativas ao término de cada requisição, detecta transações órfãs, gera logs de alerta e executa rollbacks imediatos.
-  - title: Rollback Defensivo de Estado
-    details: Restaura fusos horários alterados, esvazia buffers de saída não fechados e redefine níveis de erro no encerramento de cada requisição.
+  - title: Rollback de Estado & Resettables
+    details: Restaura fusos horários, esvazia buffers e executa reset automático de serviços e propriedades #[ResetOnRequest] com zero reflexão no hot path.
   - title: Reciclagem Graciosa de Workers
     details: Intercepta o ciclo quando limites de memória RSS ou limites de requisições são atingidos, finalizando a requisição ativa com segurança.
   - title: Linter Estático CLI
@@ -63,6 +63,10 @@ FrankenPhp::run(
     config: new Config(
         maxDriftMb: 64,
         checkTransactions: true,
+        resettables: [
+            App\Services\CartSession::class,
+            fn () => LegacyStatic::$cache = [],
+        ],
     ),
 );
 ```
