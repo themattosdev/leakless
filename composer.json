@@ -18,8 +18,9 @@
     },
     "require-dev": {
         "laravel/pint": "^1.18",
-        "nunomaduro/phpinsights": "^2.14",
+        "nunomaduro/phpinsights": "^2.11 || ^2.14",
         "orchestra/testbench": "^9.0 || ^10.0",
+
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-arch": "^3.0",
         "phpstan/phpstan": "^2.0",
