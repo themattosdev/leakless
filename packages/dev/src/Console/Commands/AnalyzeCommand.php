@@ -16,6 +16,20 @@ use Termwind\Termwind;
 
 final class AnalyzeCommand extends Command
 {
+    /**
+     * @var (callable(array<int, string>): array{int, string, string})|null
+     */
+    private $processRunner;
+
+    /**
+     * @param  (callable(array<int, string>): array{int, string, string})|null  $processRunner
+     */
+    public function __construct(?callable $processRunner = null)
+    {
+        parent::__construct();
+        $this->processRunner = $processRunner;
+    }
+
     protected function configure(): void
     {
         $this
@@ -80,30 +94,34 @@ final class AnalyzeCommand extends Command
             ...$resolvedPaths,
         ];
 
-        $process = proc_open(
-            $command,
-            [
-                0 => ['pipe', 'r'],
-                1 => ['pipe', 'w'],
-                2 => ['pipe', 'w'],
-            ],
-            $pipes,
-            getcwd() ?: null,
-        );
+        if ($this->processRunner !== null) {
+            [$exitCode, $stdout, $stderr] = ($this->processRunner)($command);
+        } else {
+            $process = proc_open(
+                $command,
+                [
+                    0 => ['pipe', 'r'],
+                    1 => ['pipe', 'w'],
+                    2 => ['pipe', 'w'],
+                ],
+                $pipes,
+                getcwd() ?: null,
+            );
 
-        if (! is_resource($process)) {
-            $output->writeln('<error>Failed to execute PHPStan analysis engine.</error>');
+            if (! is_resource($process)) {
+                $output->writeln('<error>Failed to execute PHPStan analysis engine.</error>');
 
-            return Command::FAILURE;
+                return Command::FAILURE;
+            }
+
+            fclose($pipes[0]);
+            $stdout = (string) stream_get_contents($pipes[1]);
+            fclose($pipes[1]);
+            $stderr = (string) stream_get_contents($pipes[2]);
+            fclose($pipes[2]);
+
+            $exitCode = proc_close($process);
         }
-
-        fclose($pipes[0]);
-        $stdout = (string) stream_get_contents($pipes[1]);
-        fclose($pipes[1]);
-        $stderr = (string) stream_get_contents($pipes[2]);
-        fclose($pipes[2]);
-
-        $exitCode = proc_close($process);
 
         /** @var array{totals?: array{errors?: int, file_errors?: int}, files?: array<string, array{errors?: int, messages?: array<int, array{message: string, line: int, ignorable?: bool, identifier?: string}>}>}|null $decoded */
         $decoded = json_decode($stdout, true);
@@ -115,6 +133,10 @@ final class AnalyzeCommand extends Command
         }
 
         $this->renderTerminalReport($decoded, $stderr, $resolvedPaths);
+
+        if ($decoded === null || $exitCode !== 0) {
+            return Command::FAILURE;
+        }
 
         return ($decoded['totals']['file_errors'] ?? 0) === 0 && ($decoded['totals']['errors'] ?? 0) === 0
             ? Command::SUCCESS

@@ -20,9 +20,7 @@ final class BanIncompatibleWorkerFunctionsRuleTest extends RuleTestCase
 
     public static function getAdditionalConfigFiles(): array
     {
-        return [
-            __DIR__.'/../../../../packages/dev/extension.neon',
-        ];
+        return [];
     }
 
     public function test_it_reports_incompatible_functions(): void

@@ -48,15 +48,13 @@ trait AssertsLeakless
         $after = $snapshotter->snapshot($instances, maxDepth: $maxDepth);
         $mutations = $snapshotter->compare($instances, $before, $after);
 
-        if (count($mutations) > 0) {
-            $diffs = array_map(fn (StateMutation $m) => $m->toFormattedString(), $mutations);
-            $failureMsg = $message !== '' ? $message : sprintf(
-                "Failed asserting that container instances maintained clean state:\n%s",
-                implode("\n", $diffs),
-            );
+        $diffs = array_map(fn (StateMutation $m) => $m->toFormattedString(), $mutations);
+        $failureMsg = $message !== '' ? $message : sprintf(
+            "Failed asserting that container instances maintained clean state:\n%s",
+            implode("\n", $diffs),
+        );
 
-            Assert::fail($failureMsg);
-        }
+        Assert::assertEmpty($mutations, $failureMsg);
     }
 
     /**

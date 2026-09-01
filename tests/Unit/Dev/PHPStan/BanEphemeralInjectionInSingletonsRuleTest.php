@@ -20,9 +20,7 @@ final class BanEphemeralInjectionInSingletonsRuleTest extends RuleTestCase
 
     public static function getAdditionalConfigFiles(): array
     {
-        return [
-            __DIR__.'/../../../../packages/dev/extension.neon',
-        ];
+        return [];
     }
 
     public function test_it_reports_ephemeral_request_injection_in_services(): void
