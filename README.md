@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Zero-State & Memory Leak Prevention for PHP Persistent Workers (FrankenPHP & Laravel Octane)</strong>
+  <strong>Zero-State & Memory Leak Prevention for Persistent PHP Workers (FrankenPHP, RoadRunner, Swoole, Symfony, Laravel & Vanilla)</strong>
 </p>
 
 <p align="center">
@@ -17,9 +17,9 @@
 
 ## Overview
 
-In traditional PHP-FPM, worker processes terminate after each request, allowing the OS to wipe memory and state. Persistent runtimes like **FrankenPHP Worker Mode** and **Laravel Octane** keep PHP in memory across thousands of requests. While significantly faster, persistent workers can suffer from unmonitored C-extension memory growth, dangling database transactions, and polluted global state.
+In traditional PHP-FPM, worker processes terminate after each request, allowing the OS to wipe memory and state. Persistent runtimes like **FrankenPHP**, **RoadRunner**, **Swoole**, and **Laravel Octane** keep PHP in memory across thousands of requests. While significantly faster, long-running workers can suffer from unmonitored C-extension memory growth (outside the Zend VM heap), dangling database transactions, open file handles, and polluted global/static state.
 
-**Leakless** is an autonomous guardian for persistent PHP: it reads real Linux kernel RSS from `/proc/self/statm`, rolls back uncommitted PDO transactions, cleans runtime state in `finally` blocks, and provides static analysis via PHPStan and Pest assertions.
+**Leakless** is an autonomous runtime guardian and static analysis engine for any persistent PHP stack: it reads real Linux kernel RSS from `/proc/self/statm`, rolls back uncommitted PDO transactions, cleans runtime state with a zero-reflection resettables engine in `finally` blocks, gracefully recycles workers before OOM Killer strikes, and provides static analysis via PHPStan and Pest assertions.
 
 ---
 

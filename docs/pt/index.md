@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Leakless"
   text: "Prevenção de Estado & Vazamento de Memória"
-  tagline: "Motor de runtime autônomo e análise estática para workers persistentes em PHP (FrankenPHP e Laravel Octane)."
+  tagline: "Motor de runtime autônomo e análise estática para workers persistentes em PHP (FrankenPHP, RoadRunner, Swoole, Symfony, Laravel e Vanilla)."
   actions:
     - theme: brand
       text: Primeiros Passos →

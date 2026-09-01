@@ -7,7 +7,7 @@ const OG_IMAGE = 'https://raw.githubusercontent.com/themattosdev/leakless/master
 export default defineConfig({
   title: 'Leakless',
   titleTemplate: ':title - Leakless',
-  description: 'Zero-State & Memory Leak Prevention for PHP Persistent Workers (FrankenPHP & Laravel Octane)',
+  description: 'Zero-State & Memory Leak Prevention for Persistent PHP Workers (FrankenPHP, RoadRunner, Swoole, Symfony, Laravel & Vanilla)',
   lastUpdated: false,
   cleanUrls: true,
 
@@ -24,7 +24,7 @@ export default defineConfig({
       'meta',
       {
         name: 'keywords',
-        content: 'php, frankenphp, laravel, octane, roadrunner, swoole, memory leak, persistent worker, garbage collection, proc statm, pdo transactions, phpstan, pest, zero state, worker recycling',
+        content: 'php, frankenphp, laravel, octane, roadrunner, swoole, symfony, slim, memory leak, persistent worker, garbage collection, proc statm, pdo transactions, phpstan, pest, zero state, worker recycling, state pollution, memory drift, php memory leak fix, queue worker leak',
       },
     ],
     ['meta', { property: 'og:type', content: 'website' }],
@@ -47,7 +47,7 @@ export default defineConfig({
             '@id': `${SITE_URL}/#website`,
             url: SITE_URL,
             name: 'Leakless',
-            description: 'Zero-State & Memory Leak Prevention for PHP Persistent Workers',
+            description: 'Zero-State & Memory Leak Prevention for Persistent PHP Workers (FrankenPHP, RoadRunner, Swoole, Symfony, Laravel & Vanilla)',
             inLanguage: ['en-US', 'pt-BR'],
           },
           {
@@ -100,10 +100,11 @@ export default defineConfig({
     root: {
       label: 'English',
       lang: 'en-US',
-      description: 'Zero-State & Memory Leak Prevention for PHP Persistent Workers (FrankenPHP & Laravel Octane)',
+      description: 'Zero-State & Memory Leak Prevention for Persistent PHP Workers (FrankenPHP, RoadRunner, Swoole, Symfony, Laravel & Vanilla)',
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
+          { text: 'Troubleshooting', link: '/guide/troubleshooting/memory-leaks' },
           { text: 'Architecture', link: '/guide/kernel-memory' },
           { text: 'Dev Tooling', link: '/tooling/cli-and-testing' },
           { text: 'API Reference', link: '/api/config' },
@@ -123,8 +124,31 @@ export default defineConfig({
               { text: 'Why Leakless?', link: '/guide/why-leakless' },
               { text: 'Getting Started', link: '/guide/getting-started' },
               { text: 'Migrating from PHP-FPM', link: '/guide/migrating-from-fpm' },
-              { text: 'Laravel Octane', link: '/guide/laravel-octane' },
+            ],
+          },
+          {
+            text: 'Servers & Runtimes',
+            items: [
               { text: 'Vanilla FrankenPHP', link: '/guide/frankenphp' },
+              { text: 'RoadRunner (PSR-7)', link: '/guide/roadrunner' },
+              { text: 'Swoole & OpenSwoole', link: '/guide/swoole' },
+              { text: 'Queue Workers & CLI Daemons', link: '/guide/cli-daemons' },
+            ],
+          },
+          {
+            text: 'Frameworks & Stacks',
+            items: [
+              { text: 'Laravel Octane', link: '/guide/laravel-octane' },
+              { text: 'Symfony', link: '/guide/symfony' },
+              { text: 'PSR-15 & Microframeworks (Slim)', link: '/guide/psr-15' },
+            ],
+          },
+          {
+            text: 'Common Leaks & Troubleshooting',
+            items: [
+              { text: 'Fixing Memory Leaks & OOM', link: '/guide/troubleshooting/memory-leaks' },
+              { text: 'Cross-User State Pollution', link: '/guide/troubleshooting/state-pollution' },
+              { text: 'Orphaned Transactions & Locks', link: '/guide/troubleshooting/database-transactions' },
             ],
           },
           {
@@ -160,10 +184,11 @@ export default defineConfig({
       label: 'Português',
       lang: 'pt-BR',
       link: '/pt/',
-      description: 'Prevenção de Estado e Vazamento de Memória para Workers Persistentes em PHP (FrankenPHP e Laravel Octane)',
+      description: 'Prevenção de Estado e Vazamento de Memória para Workers Persistentes em PHP (FrankenPHP, RoadRunner, Swoole, Symfony, Laravel e Vanilla)',
       themeConfig: {
         nav: [
           { text: 'Guia', link: '/pt/guide/getting-started' },
+          { text: 'Diagnóstico', link: '/pt/guide/troubleshooting/memory-leaks' },
           { text: 'Arquitetura', link: '/pt/guide/kernel-memory' },
           { text: 'Ferramentas Dev', link: '/pt/tooling/cli-and-testing' },
           { text: 'Referência API', link: '/pt/api/config' },
@@ -183,8 +208,31 @@ export default defineConfig({
               { text: 'Por que o Leakless?', link: '/pt/guide/why-leakless' },
               { text: 'Primeiros Passos', link: '/pt/guide/getting-started' },
               { text: 'Migrando do PHP-FPM', link: '/pt/guide/migrating-from-fpm' },
-              { text: 'Laravel Octane', link: '/pt/guide/laravel-octane' },
+            ],
+          },
+          {
+            text: 'Servidores & Runtimes',
+            items: [
               { text: 'PHP Vanilla & FrankenPHP', link: '/pt/guide/frankenphp' },
+              { text: 'RoadRunner (PSR-7)', link: '/pt/guide/roadrunner' },
+              { text: 'Swoole & OpenSwoole', link: '/pt/guide/swoole' },
+              { text: 'Workers de Fila & Daemons CLI', link: '/pt/guide/cli-daemons' },
+            ],
+          },
+          {
+            text: 'Frameworks & Stacks',
+            items: [
+              { text: 'Laravel Octane', link: '/pt/guide/laravel-octane' },
+              { text: 'Symfony', link: '/pt/guide/symfony' },
+              { text: 'PSR-15 & Microframeworks (Slim)', link: '/pt/guide/psr-15' },
+            ],
+          },
+          {
+            text: 'Diagnóstico & Solução de Vazamentos',
+            items: [
+              { text: 'Vazamentos de Memória & OOM', link: '/pt/guide/troubleshooting/memory-leaks' },
+              { text: 'Poluição de Estado Entre Usuários', link: '/pt/guide/troubleshooting/state-pollution' },
+              { text: 'Transações Órfãs & Deadlocks', link: '/pt/guide/troubleshooting/database-transactions' },
             ],
           },
           {

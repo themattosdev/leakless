@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Leakless"
   text: "Zero-State & Memory Leak Prevention"
-  tagline: "The autonomous runtime guardian and static analysis engine for persistent PHP workers (FrankenPHP & Laravel Octane)."
+  tagline: "The autonomous runtime guardian and static analysis engine for persistent PHP workers (FrankenPHP, RoadRunner, Swoole, Symfony, Laravel & Vanilla)."
   actions:
     - theme: brand
       text: Get Started →
