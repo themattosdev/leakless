@@ -20,30 +20,41 @@ final class ProcStatmParser
     public function parse(?string $rawContent = null): ProcessMetrics
     {
         $content = $rawContent ?? $this->readStatm();
-
-        if ($content === null || trim($content) === '') {
+        if ($content === null) {
             return ProcessMetrics::fallback();
         }
 
-        $parts = preg_split('/\s+/', trim($content));
-
-        if ($parts === false || count($parts) < 3) {
+        $tokens = $this->extractStatmTokens($content);
+        if ($tokens === null) {
             return ProcessMetrics::fallback();
         }
-
-        $totalProgramPages = (int) $parts[0];
-        $residentPages = (int) $parts[1];
-        $sharedPages = (int) $parts[2];
-
-        $pageSize = $this->detectPageSize();
 
         return ProcessMetrics::fromPages(
-            totalProgramPages: $totalProgramPages,
-            residentPages: $residentPages,
-            sharedPages: $sharedPages,
-            pageSize: $pageSize,
+            totalProgramPages: $tokens[0],
+            residentPages: $tokens[1],
+            sharedPages: $tokens[2],
+            pageSize: $this->detectPageSize(),
         );
     }
+
+    /**
+     * @return array{0: int, 1: int, 2: int}|null
+     */
+    private function extractStatmTokens(string $content): ?array
+    {
+        $trimmed = trim($content);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $parts = preg_split('/\s+/', $trimmed);
+        if ($parts === false || count($parts) < 3) {
+            return null;
+        }
+
+        return [(int) $parts[0], (int) $parts[1], (int) $parts[2]];
+    }
+
 
     /**
      * Check if /proc/self/statm is accessible in the current OS environment.

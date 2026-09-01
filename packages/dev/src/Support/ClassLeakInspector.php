@@ -43,7 +43,6 @@ final class ClassLeakInspector
      */
     private function inspectStaticProperties(ReflectionClass $reflection): array
     {
-        // If class itself has #[AllowPersistentState], static properties are permitted
         if (count($reflection->getAttributes(AllowPersistentState::class)) > 0) {
             return [];
         }
@@ -51,17 +50,7 @@ final class ClassLeakInspector
         $violations = [];
 
         foreach ($reflection->getProperties() as $property) {
-            if (! $property->isStatic()) {
-                continue;
-            }
-
-            // Readonly static properties are immutable
-            if ($property->isReadOnly()) {
-                continue;
-            }
-
-            // Explicitly allowed properties with attribute
-            if (count($property->getAttributes(AllowPersistentState::class)) > 0) {
+            if (! $this->isStaticPropertyLeaking($property)) {
                 continue;
             }
 
@@ -75,6 +64,15 @@ final class ClassLeakInspector
         return $violations;
     }
 
+    private function isStaticPropertyLeaking(\ReflectionProperty $property): bool
+    {
+        if (! $property->isStatic() || $property->isReadOnly()) {
+            return false;
+        }
+
+        return count($property->getAttributes(AllowPersistentState::class)) === 0;
+    }
+
     /**
      * @param  ReflectionClass<object>  $reflection
      * @return array<int, string>
@@ -83,14 +81,7 @@ final class ClassLeakInspector
     {
         $className = $reflection->getName();
 
-        // Ephemeral classes by design (Controllers, Middlewares, Jobs) can receive request
-        if (
-            str_ends_with($className, 'Controller') ||
-            str_ends_with($className, 'Middleware') ||
-            str_ends_with($className, 'Request') ||
-            str_ends_with($className, 'Job') ||
-            str_ends_with($className, 'Test')
-        ) {
+        if ($this->isEphemeralHostClass($className)) {
             return [];
         }
 
@@ -102,25 +93,45 @@ final class ClassLeakInspector
         $violations = [];
 
         foreach ($constructor->getParameters() as $param) {
-            $type = $param->getType();
-            if (! $type instanceof ReflectionNamedType) {
-                continue;
-            }
-
-            $typeName = $type->getName();
-
-            foreach (self::EPHEMERAL_CLASSES as $ephemeralClass) {
-                if ($typeName === $ephemeralClass || str_ends_with($typeName, '\\'.$ephemeralClass)) {
-                    $violations[] = sprintf(
-                        'Ephemeral request-scoped dependency %s injected into constructor of service %s via $%s.',
-                        $typeName,
-                        $className,
-                        $param->getName(),
-                    );
-                }
+            $ephemeralType = $this->resolveEphemeralType($param);
+            if ($ephemeralType !== null) {
+                $violations[] = sprintf(
+                    'Ephemeral request-scoped dependency %s injected into constructor of service %s via $%s.',
+                    $ephemeralType,
+                    $className,
+                    $param->getName(),
+                );
             }
         }
 
         return $violations;
     }
+
+    private function isEphemeralHostClass(string $className): bool
+    {
+        return str_ends_with($className, 'Controller')
+            || str_ends_with($className, 'Middleware')
+            || str_ends_with($className, 'Request')
+            || str_ends_with($className, 'Job')
+            || str_ends_with($className, 'Test');
+    }
+
+    private function resolveEphemeralType(\ReflectionParameter $param): ?string
+    {
+        $type = $param->getType();
+        if (! $type instanceof ReflectionNamedType) {
+            return null;
+        }
+
+        $typeName = $type->getName();
+
+        foreach (self::EPHEMERAL_CLASSES as $ephemeralClass) {
+            if ($typeName === $ephemeralClass || str_ends_with($typeName, '\\'.$ephemeralClass)) {
+                return $typeName;
+            }
+        }
+
+        return null;
+    }
 }
+

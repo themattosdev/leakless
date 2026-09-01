@@ -36,24 +36,38 @@ final class StateRollback
      */
     public function rollback(): void
     {
-        // 1. Restore default timezone if changed
+        $this->restoreTimezone();
+        $this->restoreWorkingDirectory();
+        $this->drainOutputBuffers();
+        $this->restoreErrorReporting();
+    }
+
+    private function restoreTimezone(): void
+    {
         if (date_default_timezone_get() !== $this->initialTimezone) {
             date_default_timezone_set($this->initialTimezone);
         }
+    }
 
-        // 2. Restore current working directory if changed
+    private function restoreWorkingDirectory(): void
+    {
         if ($this->initialWorkingDir !== null && getcwd() !== $this->initialWorkingDir) {
             @chdir($this->initialWorkingDir);
         }
+    }
 
-        // 3. Drain residual output buffers opened during the request
+    private function drainOutputBuffers(): void
+    {
         while (ob_get_level() > $this->initialObLevel) {
             @ob_end_clean();
         }
+    }
 
-        // 4. Restore error reporting level if modified
+    private function restoreErrorReporting(): void
+    {
         if (error_reporting() !== $this->initialErrorReporting) {
             error_reporting($this->initialErrorReporting);
         }
     }
 }
+

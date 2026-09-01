@@ -96,8 +96,13 @@ final class InteractsWithLeaklessTest extends TestCase
         $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage('Expected value must be a valid class-string or an object.');
 
-        $this->assertIsLeakless('NonExistentClassString');
+        /** @var mixed $nonExistent */
+        $nonExistent = 'NonExistentClassString';
+        // @phpstan-ignore argument.type
+        $this->assertIsLeakless($nonExistent);
     }
+
+
 
     public function test_it_fails_when_container_target_has_no_instances(): void
     {

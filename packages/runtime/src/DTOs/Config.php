@@ -39,6 +39,12 @@ final readonly class Config
         public ?Closure $logger = null,
         public ?Closure $onReport = null,
     ) {
+        $this->validateLimits();
+        $this->validateTuning();
+    }
+
+    private function validateLimits(): void
+    {
         if ($this->maxDriftMb !== null && $this->maxDriftMb <= 0) {
             throw new InvalidArgumentException("maxDriftMb must be greater than 0 if provided, received [{$this->maxDriftMb}].");
         }
@@ -50,7 +56,10 @@ final readonly class Config
         if ($this->maxRequests !== null && $this->maxRequests <= 0) {
             throw new InvalidArgumentException("maxRequests must be greater than 0 if provided, received [{$this->maxRequests}].");
         }
+    }
 
+    private function validateTuning(): void
+    {
         if ($this->consecutiveViolationsThreshold <= 0) {
             throw new InvalidArgumentException("consecutiveViolationsThreshold must be greater than 0, received [{$this->consecutiveViolationsThreshold}].");
         }
@@ -64,3 +73,4 @@ final readonly class Config
         }
     }
 }
+

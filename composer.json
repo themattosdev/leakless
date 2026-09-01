@@ -18,6 +18,7 @@
     },
     "require-dev": {
         "laravel/pint": "^1.18",
+        "nunomaduro/phpinsights": "^2.14",
         "orchestra/testbench": "^9.0 || ^10.0",
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-arch": "^3.0",
@@ -55,6 +56,7 @@
     },
     "config": {
         "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
             "pestphp/pest-plugin": true
         },
         "sort-packages": true

@@ -35,28 +35,10 @@ final class FileDescriptorGuard
             }
 
             while (($entry = readdir($handle)) !== false) {
-                if ($entry === '.' || $entry === '..' || ! ctype_digit($entry)) {
-                    continue;
+                $target = $this->resolveDescriptorTarget($entry);
+                if ($target !== null) {
+                    $descriptors[(int) $entry] = $target;
                 }
-
-                $fd = (int) $entry;
-                $linkPath = "{$this->procFdPath}/{$entry}";
-
-                if (! is_link($linkPath)) {
-                    continue;
-                }
-
-                $target = @readlink($linkPath);
-                if ($target === false) {
-                    continue;
-                }
-
-                // Ignore transient opendir handle for /proc/self/fd itself
-                if (str_contains($target, 'proc') && str_contains($target, 'fd')) {
-                    continue;
-                }
-
-                $descriptors[$fd] = $target;
             }
 
             closedir($handle);
@@ -65,6 +47,30 @@ final class FileDescriptorGuard
         }
 
         return $descriptors;
+    }
+
+    private function resolveDescriptorTarget(string $entry): ?string
+    {
+        if ($entry === '.' || $entry === '..' || ! ctype_digit($entry)) {
+            return null;
+        }
+
+        $linkPath = "{$this->procFdPath}/{$entry}";
+        if (! is_link($linkPath)) {
+            return null;
+        }
+
+        $target = @readlink($linkPath);
+        if ($target === false || $this->isTransientProcHandle($target)) {
+            return null;
+        }
+
+        return $target;
+    }
+
+    private function isTransientProcHandle(string $target): bool
+    {
+        return str_contains($target, 'proc') && str_contains($target, 'fd');
     }
 
     /**
@@ -93,13 +99,7 @@ final class FileDescriptorGuard
         $leaked = [];
 
         foreach ($currentDescriptors as $fd => $target) {
-            // If the descriptor was not present in the initial snapshot
-            if (! array_key_exists($fd, $initialDescriptors)) {
-                // Ignore transient directory handles for /proc/self/fd
-                if (str_contains($target, 'proc') && str_contains($target, 'fd')) {
-                    continue;
-                }
-
+            if (! array_key_exists($fd, $initialDescriptors) && ! $this->isTransientProcHandle($target)) {
                 $leaked[$fd] = $target;
             }
         }
@@ -111,3 +111,4 @@ final class FileDescriptorGuard
         ];
     }
 }
+

@@ -80,9 +80,11 @@ test('it captures exceptions during rollback gracefully', function () {
     $mockPdo = mock(PDO::class);
     $mockPdo->shouldReceive('inTransaction')->andReturnTrue();
     $mockPdo->shouldReceive('rollBack')->andThrow(new RuntimeException('Connection dropped'));
+    assert($mockPdo instanceof PDO);
 
     $guard = new TransactionGuard;
     $guard->registerConnection($mockPdo);
+
 
     $result = $guard->auditAndRollback();
 

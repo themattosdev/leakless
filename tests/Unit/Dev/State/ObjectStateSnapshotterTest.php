@@ -190,14 +190,17 @@ test('it respects custom maxDepth parameter during object inspection', function 
 test('it extracts instances from generic psr-11 container', function () {
     $container = new class implements \Psr\Container\ContainerInterface
     {
+        /** @var array<int, object> */
         public array $services = [];
 
+        /** @var array<int, object> */
         public array $singletons = [];
 
         public function get(string $id): mixed
         {
             return $this->services[$id] ?? null;
         }
+
 
         public function has(string $id): bool
         {

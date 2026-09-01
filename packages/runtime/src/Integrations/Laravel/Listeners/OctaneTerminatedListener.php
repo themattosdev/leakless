@@ -38,10 +38,8 @@ final class OctaneTerminatedListener
      */
     private function collectActivePdoConnections(): array
     {
-        $pdos = [];
-
         if (! $this->app->bound('db')) {
-            return $pdos;
+            return [];
         }
 
         try {
@@ -50,21 +48,37 @@ final class OctaneTerminatedListener
             /** @var array<string, Connection> $connections */
             $connections = $db->getConnections();
 
-            foreach ($connections as $connection) {
-                try {
-                    $pdo = $connection->getPdo();
-                    if (! in_array($pdo, $pdos, true)) {
-                        $pdos[] = $pdo;
-                    }
-                } catch (Throwable) {
-                    // Connection not yet established or already closed
-                }
-            }
+            return $this->extractUniquePdos($connections);
         } catch (Throwable) {
-            // Database service unavailable
+            return [];
+        }
+    }
+
+    /**
+     * @param  array<string, Connection>  $connections
+     * @return array<int, PDO>
+     */
+    private function extractUniquePdos(array $connections): array
+    {
+        $pdos = [];
+        foreach ($connections as $connection) {
+            $pdo = $this->extractConnectionPdo($connection);
+            if ($pdo !== null && ! in_array($pdo, $pdos, true)) {
+                $pdos[] = $pdo;
+            }
         }
 
         return $pdos;
+    }
+
+
+    private function extractConnectionPdo(Connection $connection): ?PDO
+    {
+        try {
+            return $connection->getPdo();
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -74,48 +88,77 @@ final class OctaneTerminatedListener
      */
     private function extractMetadata(mixed $event): array
     {
-        $metadata = [];
-
-        if (is_object($event)) {
-            if (isset($event->request) && is_object($event->request) && method_exists($event->request, 'path')) {
-                $metadata['path'] = (string) $event->request->path();
-                $metadata['method'] = method_exists($event->request, 'method') ? (string) $event->request->method() : 'GET';
-            }
-
-            if (isset($event->response) && is_object($event->response) && method_exists($event->response, 'getStatusCode')) {
-                $metadata['status'] = (int) $event->response->getStatusCode();
-            }
+        if (! is_object($event)) {
+            return [];
         }
+
+        $metadata = [];
+        $this->extractRequestMetadata($event, $metadata);
+        $this->extractResponseMetadata($event, $metadata);
 
         return $metadata;
     }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function extractRequestMetadata(object $event, array &$metadata): void
+    {
+        if (! isset($event->request) || ! is_object($event->request) || ! method_exists($event->request, 'path')) {
+            return;
+        }
+
+        $metadata['path'] = (string) $event->request->path();
+        $metadata['method'] = method_exists($event->request, 'method') ? (string) $event->request->method() : 'GET';
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function extractResponseMetadata(object $event, array &$metadata): void
+    {
+        if (isset($event->response) && is_object($event->response) && method_exists($event->response, 'getStatusCode')) {
+            $metadata['status'] = (int) $event->response->getStatusCode();
+        }
+    }
+
 
     /**
      * Notify Laravel Octane to gracefully stop the current worker and spawn a fresh replacement.
      */
     private function signalOctaneRecycle(): void
     {
-        if ($this->app->bound('octane')) {
-            try {
-                $octane = $this->app->make('octane');
-                if (is_object($octane) && method_exists($octane, 'stopWorker')) {
-                    $octane->stopWorker();
-                }
-            } catch (Throwable $e) {
-                if ($this->app->bound('log')) {
-                    try {
-                        /** @var LoggerInterface $log */
-                        $log = $this->app->make('log');
-                        $log->error("[Leakless] Failed to signal Octane worker stop: {$e->getMessage()}", [
-                            'exception' => $e,
-                        ]);
-                    } catch (Throwable) {
-                        error_log("[Leakless] Failed to signal Octane worker stop: {$e->getMessage()}");
-                    }
-                } else {
-                    error_log("[Leakless] Failed to signal Octane worker stop: {$e->getMessage()}");
-                }
+        if (! $this->app->bound('octane')) {
+            return;
+        }
+
+        try {
+            $octane = $this->app->make('octane');
+            if (is_object($octane) && method_exists($octane, 'stopWorker')) {
+                $octane->stopWorker();
             }
+        } catch (Throwable $e) {
+            $this->logOctaneError($e);
+        }
+    }
+
+    private function logOctaneError(Throwable $e): void
+    {
+        $message = "[Leakless] Failed to signal Octane worker stop: {$e->getMessage()}";
+
+        if (! $this->app->bound('log')) {
+            error_log($message);
+
+            return;
+        }
+
+        try {
+            /** @var LoggerInterface $log */
+            $log = $this->app->make('log');
+            $log->error($message, ['exception' => $e]);
+        } catch (Throwable) {
+            error_log($message);
         }
     }
 }
+
