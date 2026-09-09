@@ -12,9 +12,10 @@
         }
     ],
     "require": {
-        "php": "^8.2",
-        "ext-pcntl": "*",
-        "ext-posix": "*"
+        "php": "^8.2"
+    },
+    "suggest": {
+        "ext-posix": "Used to dynamically detect custom OS kernel memory page sizes (defaults to 4096 bytes)"
     },
     "require-dev": {
         "laravel/pint": "^1.18",
