@@ -54,6 +54,12 @@ return [
     'auto_recycle' => env('LEAKLESS_AUTO_RECYCLE', true),
 
     'log_violations' => env('LEAKLESS_LOG_VIOLATIONS', true),
+ 
+    'zts_aware' => env('LEAKLESS_ZTS_AWARE') !== null ? filter_var(env('LEAKLESS_ZTS_AWARE'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null,
+
+    'thread_tolerance_mb' => (float) env('LEAKLESS_THREAD_TOLERANCE_MB', 2.0),
+
+    'unattributed_violations_threshold' => (int) env('LEAKLESS_UNATTRIBUTED_THRESHOLD', 10),
 
     'resettables' => [
         // App\Services\CartSession::class,
@@ -77,6 +83,9 @@ return [
 | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `bool` | `false` | Inspect `/proc/self/fd` for lingering file handles and sockets. |
 | `LEAKLESS_AUTO_RECYCLE` | `bool` | `true` | Automatically signal Octane worker stop on confirmed breach. |
 | `LEAKLESS_LOG_VIOLATIONS` | `bool` | `true` | Log diagnostic warnings when leaks or anomalies occur. |
+| `LEAKLESS_ZTS_AWARE` | `bool\|null` | `null` | Enable ZTS thread-safe memory attribution (`null` for auto-detect). |
+| `LEAKLESS_THREAD_TOLERANCE_MB` | `float` | `2.0` | Minimum Zend MM growth (MB) to attribute drift to the thread. |
+| `LEAKLESS_UNATTRIBUTED_THRESHOLD` | `int` | `10` | Consecutive checks before recycling for native C/unattributed leaks. |
 
 ---
 
