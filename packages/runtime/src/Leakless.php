@@ -43,6 +43,10 @@ final class Leakless
 
     private int $consecutiveViolations = 0;
 
+    private int $unattributedViolations = 0;
+
+    private readonly bool $isZts;
+
     private ?float $lastRecycleTimestamp = null;
 
     private ?Report $lastReport = null;
@@ -74,6 +78,7 @@ final class Leakless
         $this->fileDescriptorGuard = $fileDescriptorGuard ?? new FileDescriptorGuard;
         $this->stateRollback = $stateRollback ?? new StateRollback;
         $this->recycler = $recycler;
+        $this->isZts = $this->config->ztsAware ?? (defined('PHP_ZTS') && PHP_ZTS === 1);
 
         if (! empty($this->config->resettables)) {
             $this->stateRollback->registerResetTargets($this->config->resettables);
@@ -114,7 +119,7 @@ final class Leakless
             : 0.0;
 
         [$txAudit, $fdAudit] = $this->auditGuardsAndRollback($additionalConnections);
-        [$initialMetrics, $finalMetrics, $baselineRssMb, $currentDriftMb, $driftLimit] = $this->evaluateMemoryMetrics();
+        [$initialMetrics, $finalMetrics, $baselineRssMb, $currentDriftMb, $driftLimit, $driftAttributedToThread, $unattributedProcessDrift] = $this->evaluateMemoryMetrics();
         [$shouldRecycle, $recycleReason, $cooldownActive] = $this->evaluateRecycleDecision($finalMetrics, $currentDriftMb, $driftLimit);
 
         $report = new Report(
@@ -132,6 +137,9 @@ final class Leakless
             baselineRssMb: $baselineRssMb,
             consecutiveViolationsCount: $this->consecutiveViolations,
             cooldownActive: $cooldownActive,
+            isZts: $this->isZts,
+            driftAttributedToThread: $driftAttributedToThread,
+            unattributedProcessDrift: $unattributedProcessDrift,
         );
 
         $this->lastReport = $report;
@@ -175,7 +183,7 @@ final class Leakless
     }
 
     /**
-     * @return array{0: ProcessMetrics, 1: ProcessMetrics, 2: float, 3: float, 4: float}
+     * @return array{0: ProcessMetrics, 1: ProcessMetrics, 2: float, 3: float, 4: float, 5: bool, 6: bool}
      */
     private function evaluateMemoryMetrics(): array
     {
@@ -196,9 +204,38 @@ final class Leakless
             $softDriftBreached = $this->isSoftDriftBreached($currentDriftMb, $driftLimit);
         }
 
-        $this->consecutiveViolations = $softDriftBreached ? $this->consecutiveViolations + 1 : 0;
+        $driftAttributedToThread = true;
+        $unattributedProcessDrift = false;
 
-        return [$initialMetrics, $finalMetrics, $baselineRssMb, $currentDriftMb, $driftLimit];
+        if ($this->isZts) {
+            $threadZendDeltaMb = round($finalMetrics->zendMemoryUsageMb - $initialMetrics->zendMemoryUsageMb, 2);
+            $threadZendDriftMb = round($finalMetrics->zendMemoryUsageMb - $this->baselineMetrics->zendMemoryUsageMb, 2);
+
+            if ($softDriftBreached) {
+                $isAttributed = ($threadZendDeltaMb > $this->config->threadToleranceMb)
+                    || ($threadZendDriftMb > $this->config->threadToleranceMb);
+
+                if ($isAttributed) {
+                    $this->consecutiveViolations++;
+                    $this->unattributedViolations = 0;
+                    $driftAttributedToThread = true;
+                    $unattributedProcessDrift = false;
+                } else {
+                    $this->consecutiveViolations = 0;
+                    $this->unattributedViolations++;
+                    $driftAttributedToThread = false;
+                    $unattributedProcessDrift = true;
+                }
+            } else {
+                $this->consecutiveViolations = 0;
+                $this->unattributedViolations = 0;
+            }
+        } else {
+            $this->consecutiveViolations = $softDriftBreached ? $this->consecutiveViolations + 1 : 0;
+            $this->unattributedViolations = 0;
+        }
+
+        return [$initialMetrics, $finalMetrics, $baselineRssMb, $currentDriftMb, $driftLimit, $driftAttributedToThread, $unattributedProcessDrift];
     }
 
     private function isSoftDriftBreached(float $currentDriftMb, float $driftLimit): bool
@@ -236,9 +273,25 @@ final class Leakless
                 return [false, "Memory drift exceeded limit ({$currentDriftMb}MB > {$driftLimit}MB across {$this->consecutiveViolations} consecutive requests), but recycling is throttled by cooldown window ({$this->config->recycleCooldownSeconds}s).", true];
             }
 
+            $violations = $this->consecutiveViolations;
             $this->recordRecycleTrigger($now);
 
-            return [true, "Memory drift limit exceeded: {$currentDriftMb}MB > {$driftLimit}MB persistently across {$this->consecutiveViolations} consecutive requests", false];
+            $reason = $this->isZts
+                ? "Thread memory drift limit exceeded: {$currentDriftMb}MB > {$driftLimit}MB (with Zend MM growth) persistently across {$violations} consecutive requests"
+                : "Memory drift limit exceeded: {$currentDriftMb}MB > {$driftLimit}MB persistently across {$violations} consecutive requests";
+
+            return [true, $reason, false];
+        }
+
+        if ($this->isUnattributedDriftThresholdMet()) {
+            if ($this->isCooldownThrottled($now)) {
+                return [false, "Unattributed process memory drift exceeded limit ({$currentDriftMb}MB > {$driftLimit}MB across {$this->unattributedViolations} consecutive checks), but recycling is throttled by cooldown window ({$this->config->recycleCooldownSeconds}s).", true];
+            }
+
+            $violations = $this->unattributedViolations;
+            $this->recordRecycleTrigger($now);
+
+            return [true, "Process memory drift limit exceeded: {$currentDriftMb}MB > {$driftLimit}MB persistently across {$violations} consecutive checks without Zend memory attribution (possible native C extension leak or allocator fragmentation)", false];
         }
 
         if ($this->isMaxRequestsBreached()) {
@@ -255,6 +308,13 @@ final class Leakless
         return $this->config->maxDriftMb !== null && $this->consecutiveViolations >= $this->config->consecutiveViolationsThreshold;
     }
 
+    private function isUnattributedDriftThresholdMet(): bool
+    {
+        return $this->isZts
+            && $this->config->maxDriftMb !== null
+            && $this->unattributedViolations >= $this->config->unattributedViolationsThreshold;
+    }
+
     private function isCooldownThrottled(float $now): bool
     {
         return $this->lastRecycleTimestamp !== null && ($now - $this->lastRecycleTimestamp) < $this->config->recycleCooldownSeconds;
@@ -269,6 +329,7 @@ final class Leakless
     {
         $this->lastRecycleTimestamp = $now;
         $this->consecutiveViolations = 0;
+        $this->unattributedViolations = 0;
     }
 
     /**
@@ -312,6 +373,21 @@ final class Leakless
     public function resetConsecutiveViolations(): void
     {
         $this->consecutiveViolations = 0;
+    }
+
+    public function isZts(): bool
+    {
+        return $this->isZts;
+    }
+
+    public function getUnattributedViolations(): int
+    {
+        return $this->unattributedViolations;
+    }
+
+    public function resetUnattributedViolations(): void
+    {
+        $this->unattributedViolations = 0;
     }
 
     public function getLastRecycleTimestamp(): ?float

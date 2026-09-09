@@ -28,6 +28,9 @@ final readonly class Report
      * @param  float|null  $baselineRssMb  Baseline memory measured during worker initialization.
      * @param  int  $consecutiveViolationsCount  Number of consecutive memory drift breaches detected.
      * @param  bool  $cooldownActive  True if worker recycling was throttled due to cooldown window.
+     * @param  bool  $isZts  Whether the runtime was operating in ZTS multithread mode.
+     * @param  bool  $driftAttributedToThread  Whether memory drift was directly attributed to the current thread's Zend memory.
+     * @param  bool  $unattributedProcessDrift  Whether process RSS drifted without attribution to the current thread's Zend memory.
      */
     public function __construct(
         public ProcessMetrics $initialMetrics,
@@ -45,6 +48,9 @@ final readonly class Report
         public ?float $baselineRssMb = null,
         public int $consecutiveViolationsCount = 0,
         public bool $cooldownActive = false,
+        public bool $isZts = false,
+        public bool $driftAttributedToThread = true,
+        public bool $unattributedProcessDrift = false,
     ) {
         $this->memoryDriftMb = round($this->finalMetrics->rssMb - $this->initialMetrics->rssMb, 2);
         $this->zendMemoryDriftMb = round($this->finalMetrics->zendMemoryUsageMb - $this->initialMetrics->zendMemoryUsageMb, 2);
