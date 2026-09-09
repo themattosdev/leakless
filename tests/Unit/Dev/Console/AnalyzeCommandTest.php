@@ -149,3 +149,28 @@ test('it executes analyze command with default paths when none provided', functi
 
     expect($exitCode)->toBe(Command::SUCCESS);
 });
+
+test('it executes analyze command with real AST engine on clean code', function () {
+    $command = new AnalyzeCommand;
+    $tester = new CommandTester($command);
+
+    $exitCode = $tester->execute([
+        'paths' => ['packages/runtime/src/Attributes'],
+    ]);
+
+    expect($exitCode)->toBe(Command::SUCCESS)
+        ->and($tester->getDisplay())->toContain('PASS: No memory leaks');
+});
+
+test('it executes analyze command with real AST engine on leaky fixtures', function () {
+    $command = new AnalyzeCommand;
+    $tester = new CommandTester($command);
+
+    $exitCode = $tester->execute([
+        'paths' => ['tests/Fixtures/PHPStan/MutableStaticFixture.php'],
+    ]);
+
+    expect($exitCode)->toBe(Command::FAILURE)
+        ->and($tester->getDisplay())->toContain('FAIL: Found 1 worker violation(s)')
+        ->and($tester->getDisplay())->toContain('leakless.mutableStaticProperty');
+});

@@ -13,21 +13,22 @@ use Symfony\Component\Console\Output\OutputInterface;
 use function Termwind\render;
 
 use Termwind\Termwind;
+use TheMattos\Leakless\Dev\Analysis\WorkerSafetyAnalyzer;
 
 final class AnalyzeCommand extends Command
 {
     /**
-     * @var (callable(array<int, string>): array{int, string, string})|null
+     * @var (callable(array<int, string>): array{int, string, string})|WorkerSafetyAnalyzer|null
      */
-    private $processRunner;
+    private $analyzerOrRunner;
 
     /**
-     * @param  (callable(array<int, string>): array{int, string, string})|null  $processRunner
+     * @param  (callable(array<int, string>): array{int, string, string})|WorkerSafetyAnalyzer|null  $analyzerOrRunner
      */
-    public function __construct(?callable $processRunner = null)
+    public function __construct(callable|WorkerSafetyAnalyzer|null $analyzerOrRunner = null)
     {
         parent::__construct();
-        $this->processRunner = $processRunner;
+        $this->analyzerOrRunner = $analyzerOrRunner;
     }
 
     protected function configure(): void
@@ -45,7 +46,7 @@ final class AnalyzeCommand extends Command
                 'configuration',
                 'c',
                 InputOption::VALUE_REQUIRED,
-                'Path to a custom phpstan.neon configuration file',
+                'Path to a custom configuration file (kept for compatibility)',
             )
             ->addOption(
                 'memory-limit',
@@ -68,63 +69,10 @@ final class AnalyzeCommand extends Command
 
         /** @var array<int, string> $paths */
         $paths = (array) $input->getArgument('paths');
-        /** @var string|null $configPath */
-        $configPath = $input->getOption('configuration');
-        $memoryLimitRaw = $input->getOption('memory-limit');
-        $memoryLimit = is_string($memoryLimitRaw) ? $memoryLimitRaw : '256M';
         $jsonOutput = (bool) $input->getOption('json');
-
         $resolvedPaths = $this->resolvePaths($paths);
-        $extensionNeonPath = realpath(__DIR__.'/../../../extension.neon');
 
-        if ($extensionNeonPath === false) {
-            $extensionNeonPath = __DIR__.'/../../../extension.neon';
-        }
-
-        $command = [
-            PHP_BINARY,
-            $this->locatePhpstanBinary(),
-            'analyse',
-            '--error-format=json',
-            '--no-progress',
-            '--level=0',
-            '--memory-limit='.$memoryLimit,
-            '-c',
-            $configPath ?? $extensionNeonPath,
-            ...$resolvedPaths,
-        ];
-
-        if ($this->processRunner !== null) {
-            [$exitCode, $stdout, $stderr] = ($this->processRunner)($command);
-        } else {
-            $process = proc_open(
-                $command,
-                [
-                    0 => ['pipe', 'r'],
-                    1 => ['pipe', 'w'],
-                    2 => ['pipe', 'w'],
-                ],
-                $pipes,
-                getcwd() ?: null,
-            );
-
-            if (! is_resource($process)) {
-                $output->writeln('<error>Failed to execute PHPStan analysis engine.</error>');
-
-                return Command::FAILURE;
-            }
-
-            fclose($pipes[0]);
-            $stdout = (string) stream_get_contents($pipes[1]);
-            fclose($pipes[1]);
-            $stderr = (string) stream_get_contents($pipes[2]);
-            fclose($pipes[2]);
-
-            $exitCode = proc_close($process);
-        }
-
-        /** @var array{totals?: array{errors?: int, file_errors?: int}, files?: array<string, array{errors?: int, messages?: array<int, array{message: string, line: int, ignorable?: bool, identifier?: string}>}>}|null $decoded */
-        $decoded = json_decode($stdout, true);
+        [$exitCode, $decoded, $stdout, $stderr] = $this->runAnalysis($resolvedPaths);
 
         if ($jsonOutput) {
             $output->writeln($stdout);
@@ -138,9 +86,39 @@ final class AnalyzeCommand extends Command
             return Command::FAILURE;
         }
 
-        return ($decoded['totals']['file_errors'] ?? 0) === 0 && ($decoded['totals']['errors'] ?? 0) === 0
+        $fileErrors = $decoded['totals']['file_errors'] ?? 0;
+        $totalErrors = $decoded['totals']['errors'] ?? 0;
+
+        return $fileErrors === 0 && $totalErrors === 0
             ? Command::SUCCESS
             : Command::FAILURE;
+    }
+
+    /**
+     * @param  array<int, string>  $resolvedPaths
+     * @return array{int, array{totals?: array{errors?: int, file_errors?: int}, files?: array<string, array{errors?: int, messages?: array<int, array{message: string, line: int, ignorable?: bool, identifier?: string}>}>}|null, string, string}
+     */
+    private function runAnalysis(array $resolvedPaths): array
+    {
+        if (is_callable($this->analyzerOrRunner)) {
+            [$exitCode, $stdout, $stderr] = ($this->analyzerOrRunner)($resolvedPaths);
+            /** @var array{totals?: array{errors?: int, file_errors?: int}, files?: array<string, array{errors?: int, messages?: array<int, array{message: string, line: int, ignorable?: bool, identifier?: string}>}>}|null $decoded */
+            $decoded = json_decode($stdout, true);
+
+            return [$exitCode, $decoded, $stdout, $stderr];
+        }
+
+        $analyzer = $this->analyzerOrRunner instanceof WorkerSafetyAnalyzer
+            ? $this->analyzerOrRunner
+            : new WorkerSafetyAnalyzer;
+
+        $report = $analyzer->analyze($resolvedPaths);
+        $fileErrors = $report['totals']['file_errors'];
+        $totalErrors = $report['totals']['errors'];
+        $exitCode = ($fileErrors === 0 && $totalErrors === 0) ? Command::SUCCESS : Command::FAILURE;
+        $stdout = (string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return [$exitCode, $report, $stdout, ''];
     }
 
     /**
@@ -162,23 +140,6 @@ final class AnalyzeCommand extends Command
         }
 
         return count($defaults) > 0 ? $defaults : ['.'];
-    }
-
-    private function locatePhpstanBinary(): string
-    {
-        $candidates = [
-            'vendor/bin/phpstan',
-            __DIR__.'/../../../../../vendor/bin/phpstan',
-            __DIR__.'/../../../../bin/phpstan',
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (file_exists($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return 'vendor/bin/phpstan';
     }
 
     /**
@@ -209,6 +170,14 @@ HTML);
             return;
         }
 
+        $this->renderReportResults($report);
+    }
+
+    /**
+     * @param  array{totals?: array{errors?: int, file_errors?: int}, files?: array<string, array{errors?: int, messages?: array<int, array{message: string, line: int, ignorable?: bool, identifier?: string}>}>}  $report
+     */
+    private function renderReportResults(array $report): void
+    {
         $fileErrors = $report['totals']['file_errors'] ?? 0;
         $totalErrors = $report['totals']['errors'] ?? 0;
         $allErrorsCount = $fileErrors + $totalErrors;
@@ -229,7 +198,20 @@ HTML);
 </div>
 HTML);
 
-        $files = $report['files'] ?? [];
+        $this->renderViolatingFiles($report['files'] ?? []);
+
+        render(<<<'HTML'
+<div class="mt-2 text-gray-400">
+    💡 Hint: Use #[AllowPersistentState] on intentional static properties, or wrap request-scoped dependencies.
+</div>
+HTML);
+    }
+
+    /**
+     * @param  array<string, array{errors?: int, messages?: array<int, array{message: string, line: int, ignorable?: bool, identifier?: string}>}>  $files
+     */
+    private function renderViolatingFiles(array $files): void
+    {
         foreach ($files as $filePath => $fileData) {
             $messages = $fileData['messages'] ?? [];
             if (count($messages) === 0) {
@@ -257,11 +239,5 @@ HTML);
 HTML);
             }
         }
-
-        render(<<<'HTML'
-<div class="mt-2 text-gray-400">
-    💡 Hint: Use #[AllowPersistentState] on intentional static properties, or wrap request-scoped dependencies.
-</div>
-HTML);
     }
 }

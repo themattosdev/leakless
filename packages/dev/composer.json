@@ -24,8 +24,10 @@
         "themattosdev/leakless": "^0.5 || ^0.6 || ^0.7 || ^0.8 || *@dev",
         "nikic/php-parser": "^5.0",
         "nunomaduro/termwind": "^2.0",
-        "phpstan/phpstan": "^2.0",
         "symfony/console": "^6.4 || ^7.0"
+    },
+    "suggest": {
+        "phpstan/phpstan": "Allows running Leakless worker safety rules directly inside your existing PHPStan pipeline (^2.0)"
     },
     "autoload": {
         "psr-4": {
