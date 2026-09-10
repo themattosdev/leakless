@@ -133,7 +133,7 @@ test('service executes cleanly without leaking memory or state', function () {
 });
 ```
 
-### 4. Static Worker Linter CLI
+### 5. Static Worker Linter CLI
 
 ```bash
 vendor/bin/leakless analyze
