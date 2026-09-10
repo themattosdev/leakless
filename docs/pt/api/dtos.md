@@ -14,49 +14,66 @@ Ao final de cada ciclo de requisição, o `$leakless->endRequest()` retorna um o
 $report = $leakless->endRequest();
 
 // 1. Verificar se a requisição executou mantendo o estado 100% limpo
-if (! $report->isClean) {
+if (! $report->isClean()) {
     logger()->warning('Anomalia de estado detectada no worker');
 }
 
 // 2. Verificar se transações de banco abertas foram interceptadas e revertidas
-if ($report->hasTransactionLeak) {
+if ($report->danglingTransactionsDetected) {
     // Enviar alerta ou métrica para Prometheus, Datadog ou Sentry
     metrics()->increment('worker.transactions.rolled_back');
 }
 
 // 3. Inspecionar métricas de memória física real do Linux (RSS)
 echo "Memória física consumida nesta requisição: {$report->memoryDriftMb} MB\n";
-echo "RAM física atual do worker (RSS): {$report->metricsAfter->rssMb} MB\n";
+echo "RAM física atual do worker (RSS): {$report->finalMetrics->rssMb} MB\n";
 
-// 4. Verificar se o worker atingiu o teto de memória ou limite de requisições
+// 4. No modo ZTS, inspecionar atribuição da thread
+if ($report->isZts) {
+    if ($report->unattributedProcessDrift) {
+        logger()->warning('RSS do processo subiu sem crescimento no ZMM da thread (ruído de vizinho ou leak em C)');
+    }
+}
+
+// 5. Verificar se o worker atingiu o teto de memória ou limite de requisições
 if ($report->shouldRecycle) {
     // Finalizar o loop ou sinalizar o gerenciador de processos
     $worker->stop();
 }
 ```
 
-### Propriedades Disponíveis
+### Propriedades e Métodos Disponíveis
 
-| Propriedade | Tipo | Descrição |
+| Propriedade / Método | Tipo | Descrição |
 | :--- | :---: | :--- |
-| `$report->isClean` | `bool` | `true` se nenhuma transação vazou e nenhum limite de reciclagem foi atingido. |
-| `$report->hasTransactionLeak` | `bool` | `true` se uma ou mais transações PDO abertas foram revertidas automaticamente. |
+| `$report->isClean()` | `bool` | Método: retorna `true` se nenhuma transação vazou, nenhum descritor vazou e nenhuma reciclagem foi acionada. |
+| `$report->danglingTransactionsDetected` | `bool` | `true` se uma ou mais transações PDO abertas foram revertidas automaticamente. |
+| `$report->danglingTransactionsCount` | `int` | Quantidade de transações PDO interceptadas e revertidas. |
 | `$report->fileDescriptorsLeaked` | `bool` | `true` se arquivos ou sockets de rede foram esquecidos abertos. |
 | `$report->fileDescriptorsLeakedCount` | `int` | Quantidade de file descriptors não fechados. |
 | `$report->fileDescriptorsLeakedMap` | `array<int, string>` | Mapa de descritores vazados `[fd => caminho]`. |
-| `$report->shouldRecycle` | `bool` | `true` se o teto de memória ou limite de requisições foi ultrapassado. |
+| `$report->shouldRecycle` | `bool` | `true` se o teto de memória, limite de drift persistente ou limite de requisições foi ultrapassado. |
+| `$report->recycleReason` | `string\|null` | Motivo legível pelo qual a reciclagem do worker foi solicitada. |
 | `$report->memoryDriftMb` | `float` | Variação de memória física ($\Delta\text{RSS}$) em megabytes durante a requisição. |
-| `$report->metricsBefore` | `ProcessMetrics` | Snapshot de memória antes do início da requisição. |
-| `$report->metricsAfter` | `ProcessMetrics` | Snapshot de memória após o término da requisição. |
+| `$report->zendMemoryDriftMb` | `float` | Variação no Zend Memory Manager da thread ativa durante a requisição. |
+| `$report->driftOverBaselineMb` | `float` | Drift acumulado de memória do processo em relação ao baseline do worker. |
+| `$report->initialMetrics` | `ProcessMetrics` | Snapshot de memória antes do início da requisição. |
+| `$report->finalMetrics` | `ProcessMetrics` | Snapshot de memória após o término da requisição. |
+| `$report->isZts` | `bool` | `true` se o runtime estiver executando em modo multithread Zend Thread Safety (ZTS). |
+| `$report->driftAttributedToThread` | `bool` | Em modo ZTS: `true` se o drift do RSS foi confirmado pelo crescimento de Zend memory da thread ativa. |
+| `$report->unattributedProcessDrift` | `bool` | Em modo ZTS: `true` se o RSS subiu sem crescimento de Zend memory na thread atual. |
+| `$report->consecutiveViolationsCount` | `int` | Contagem atual de violações consecutivas de drift. |
+| `$report->cooldownActive` | `bool` | `true` se a reciclagem foi suspensa pela janela de cooldown. |
 
 ---
 
 ## 2. Métricas de Memória do Processo (`ProcessMetrics`)
 
-As propriedades `$report->metricsBefore` e `$report->metricsAfter` contêm detalhes de memória extraídos do kernel Linux:
+As propriedades `$report->initialMetrics` e `$report->finalMetrics` contêm detalhes de memória extraídos do kernel Linux:
 
 ```php
-$metrics = $report->metricsAfter;
+$metrics = $report->finalMetrics;
+
 
 // RAM física real ocupada pelo processo em MB (Resident Set Size)
 $rssMb = $metrics->rssMb;

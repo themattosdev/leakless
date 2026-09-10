@@ -27,6 +27,9 @@ $config = new Config(
         App\Services\CartSession::class,
         fn () => LegacyRegistry::$cache = [],
     ],
+    ztsAware: null,                     // Ativa atribuição multithread no modo ZTS (null = auto-detectar via PHP_ZTS)
+    threadToleranceMb: 2.0,             // Tolerância mínima de crescimento no ZMM da thread (MB) para atribuir drift
+    unattributedViolationsThreshold: 10,// Violações consecutivas sem atribuição antes de reciclar (vazamentos C)
 );
 ```
 
@@ -49,6 +52,9 @@ LEAKLESS_CHECK_TRANSACTIONS=true
 LEAKLESS_CHECK_FILE_DESCRIPTORS=false
 LEAKLESS_AUTO_RECYCLE=true
 LEAKLESS_LOG_VIOLATIONS=true
+LEAKLESS_ZTS_AWARE=null
+LEAKLESS_THREAD_TOLERANCE_MB=2.0
+LEAKLESS_UNATTRIBUTED_THRESHOLD=10
 ```
 
 Ou publique o arquivo `config/leakless.php`:
@@ -76,3 +82,6 @@ php artisan vendor:publish --tag="leakless-config"
 | `auto_recycle` | `LEAKLESS_AUTO_RECYCLE` | `true` | Dispara automaticamente a parada graciosa do worker quando limites ou corrupções persistirem. |
 | `log_violations` | `LEAKLESS_LOG_VIOLATIONS` | `true` | Emite logs diagnósticos quando transações órfãs ou anomalias de estado forem capturadas. |
 | `resettables` | — | `[]` | Lista de class-strings, objetos ou callbacks para resetar automaticamente ao final de cada requisição. |
+| `zts_aware` | `LEAKLESS_ZTS_AWARE` | `null` | Ativa atribuição thread-safe no modo ZTS (`null` para auto-detectar via `PHP_ZTS`). |
+| `thread_tolerance_mb` | `LEAKLESS_THREAD_TOLERANCE_MB` | `2.0` | Limiar mínimo de crescimento no ZMM (MB) para atribuir drift de RSS do processo à thread. |
+| `unattributed_violations_threshold` | `LEAKLESS_UNATTRIBUTED_THRESHOLD` | `10` | Checagens consecutivas de drift sem atribuição antes de reciclar (protege contra leaks C). |

@@ -27,6 +27,9 @@ $config = new Config(
         App\Services\CartSession::class,
         fn () => LegacyRegistry::$cache = [],
     ],
+    ztsAware: null,                     // Enable ZTS multithread attribution (null = auto-detect via PHP_ZTS)
+    threadToleranceMb: 2.0,             // Minimum thread Zend memory growth (MB) to attribute process drift
+    unattributedViolationsThreshold: 10,// Consecutive un-attributed breaches before recycling (native C leaks)
 );
 ```
 
@@ -49,6 +52,9 @@ LEAKLESS_CHECK_TRANSACTIONS=true
 LEAKLESS_CHECK_FILE_DESCRIPTORS=false
 LEAKLESS_AUTO_RECYCLE=true
 LEAKLESS_LOG_VIOLATIONS=true
+LEAKLESS_ZTS_AWARE=null
+LEAKLESS_THREAD_TOLERANCE_MB=2.0
+LEAKLESS_UNATTRIBUTED_THRESHOLD=10
 ```
 
 Or publish `config/leakless.php`:
@@ -76,4 +82,8 @@ php artisan vendor:publish --tag="leakless-config"
 | `auto_recycle` | `LEAKLESS_AUTO_RECYCLE` | `true` | Automatically stops the worker when thresholds or persistent corruption are confirmed. |
 | `log_violations` | `LEAKLESS_LOG_VIOLATIONS` | `true` | Emits diagnostic logs when uncommitted transactions or state leaks are caught. |
 | `resettables` | — | `[]` | List of class-strings, objects, or callbacks to automatically reset at the end of each request. |
+| `zts_aware` | `LEAKLESS_ZTS_AWARE` | `null` | Enable ZTS thread-safe memory attribution (`null` for auto-detect via `PHP_ZTS`). |
+| `thread_tolerance_mb` | `LEAKLESS_THREAD_TOLERANCE_MB` | `2.0` | Minimum Zend MM growth (MB) required to attribute process RSS drift to the active thread. |
+| `unattributed_violations_threshold` | `LEAKLESS_UNATTRIBUTED_THRESHOLD` | `10` | Consecutive un-attributed RSS drift checks before recycling (protects against native C leaks). |
+
 

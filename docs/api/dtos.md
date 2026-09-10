@@ -14,49 +14,66 @@ At the end of every request cycle, `$leakless->endRequest()` returns a `Report` 
 $report = $leakless->endRequest();
 
 // 1. Check if the request executed cleanly
-if (! $report->isClean) {
+if (! $report->isClean()) {
     logger()->warning('Worker state anomaly detected in request');
 }
 
 // 2. Check if open database transactions were intercepted and rolled back
-if ($report->hasTransactionLeak) {
+if ($report->danglingTransactionsDetected) {
     // Send metric to Prometheus, Datadog, or Sentry
     metrics()->increment('worker.transactions.rolled_back');
 }
 
 // 3. Inspect real Linux kernel RSS memory metrics
 echo "Physical memory consumed in this request: {$report->memoryDriftMb} MB\n";
-echo "Current worker resident memory (RSS): {$report->metricsAfter->rssMb} MB\n";
+echo "Current worker resident memory (RSS): {$report->finalMetrics->rssMb} MB\n";
 
-// 4. Check if worker reached memory ceilings or request limits
+// 4. In ZTS mode, inspect thread attribution
+if ($report->isZts) {
+    if ($report->unattributedProcessDrift) {
+        logger()->warning('Process RSS drifted without current thread Zend MM growth (noisy neighbor or native leak)');
+    }
+}
+
+// 5. Check if worker reached memory ceilings or request limits
 if ($report->shouldRecycle) {
     // Gracefully terminate or signal process manager
     $worker->stop();
 }
 ```
 
-### Available Properties
+### Available Properties & Methods
 
-| Property | Type | Description |
+| Property / Method | Type | Description |
 | :--- | :---: | :--- |
-| `$report->isClean` | `bool` | `true` if no transactions leaked and no worker recycling was triggered. |
-| `$report->hasTransactionLeak` | `bool` | `true` if one or more open PDO transactions were rolled back. |
+| `$report->isClean()` | `bool` | Method: returns `true` if no transactions leaked, no FDs leaked, and no recycling was triggered. |
+| `$report->danglingTransactionsDetected` | `bool` | `true` if one or more open PDO transactions were rolled back. |
+| `$report->danglingTransactionsCount` | `int` | Number of uncommitted PDO transactions intercepted and rolled back. |
 | `$report->fileDescriptorsLeaked` | `bool` | `true` if lingering file handles or open sockets were detected. |
 | `$report->fileDescriptorsLeakedCount` | `int` | Count of unclosed file descriptors left behind. |
 | `$report->fileDescriptorsLeakedMap` | `array<int, string>` | Map of leaked descriptors `[fd => targetPath]`. |
-| `$report->shouldRecycle` | `bool` | `true` if memory or request count limits were breached. |
+| `$report->shouldRecycle` | `bool` | `true` if memory drift, emergency ceiling, or request count limits were breached. |
+| `$report->recycleReason` | `string\|null` | Human-readable explanation if worker recycling was triggered. |
 | `$report->memoryDriftMb` | `float` | Physical RSS delta ($\Delta\text{RSS}$) in megabytes during the request. |
-| `$report->metricsBefore` | `ProcessMetrics` | Snapshot of process memory before request handling. |
-| `$report->metricsAfter` | `ProcessMetrics` | Snapshot of process memory after request handling. |
+| `$report->zendMemoryDriftMb` | `float` | Delta in current thread Zend Memory Manager during the request. |
+| `$report->driftOverBaselineMb` | `float` | Cumulative process memory drift above the worker baseline RSS. |
+| `$report->initialMetrics` | `ProcessMetrics` | Snapshot of process memory before request handling. |
+| `$report->finalMetrics` | `ProcessMetrics` | Snapshot of process memory after request handling. |
+| `$report->isZts` | `bool` | `true` if the runtime is operating in Zend Thread Safety (ZTS) multithread mode. |
+| `$report->driftAttributedToThread` | `bool` | In ZTS mode: `true` if process drift was confirmed by the active thread's Zend memory growth. |
+| `$report->unattributedProcessDrift` | `bool` | In ZTS mode: `true` if process RSS drifted without current thread Zend memory growth. |
+| `$report->consecutiveViolationsCount` | `int` | Current count of consecutive drift breaches. |
+| `$report->cooldownActive` | `bool` | `true` if recycling was throttled due to cooldown window. |
 
 ---
 
 ## 2. Process Memory Metrics (`ProcessMetrics`)
 
-The `$report->metricsBefore` and `$report->metricsAfter` properties contain Linux kernel memory details:
+The `$report->initialMetrics` and `$report->finalMetrics` properties contain Linux kernel memory details:
 
 ```php
-$metrics = $report->metricsAfter;
+$metrics = $report->finalMetrics;
+
 
 // Real physical RAM in MB (Resident Set Size)
 $rssMb = $metrics->rssMb;
