@@ -84,18 +84,41 @@ endRequest() ──────────────────────�
    }
    ```
 
-4. **Declarative `#[ResetOnRequest]` Attributes**:
+4. **Declarative `#[ResetOnRequest]` Attributes on Registered Targets**:
    ```php
    use TheMattos\Leakless\Attributes\ResetOnRequest;
 
    class UserContext
    {
-       #[ResetOnRequest(default: [])]
-       public array $permissions = ['admin'];
-
+       // Static properties are reset when UserContext::class is in resettables:
        #[ResetOnRequest]
        public static ?string $token = null;
+
+       #[ResetOnRequest(default: 'guest')]
+       public static string $role = 'guest';
+
+       // Instance properties are reset when an object instance is in resettables:
+       #[ResetOnRequest(default: [])]
+       public array $permissions = [];
    }
    ```
 
+   Register the target in your configuration:
+   ```php
+   $config = new Config(
+       resettables: [
+           // Resets static #[ResetOnRequest] properties:
+           UserContext::class,
+
+           // To reset instance properties, pass the resolved object instance:
+           // $userContextInstance,
+       ],
+   );
+   ```
+
+::: tip Important: No Automatic Project Scanning
+`#[ResetOnRequest]` defines the compilation plan for property and method resets, but **it requires the target class or instance to be explicitly registered** in `resettables` or via `$leakless->registerResetTarget()`. Leakless avoids expensive global AST or filesystem reflection scans on boot.
+:::
+
 At request completion (`endRequest()`), Leakless automatically executes all compiled resetters without any reflection overhead.
+

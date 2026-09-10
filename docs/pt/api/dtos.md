@@ -89,24 +89,24 @@ class DatabaseSchemaRegistry
 
 ## 4. O Atributo `#[ResetOnRequest]`
 
-Utilize este atributo em classes, propriedades ou métodos para declarar estado que deve ser automaticamente restaurado para os valores padrão no término de cada requisição:
+Utilize este atributo em classes, propriedades ou métodos para declarar estado que deve ser automaticamente restaurado para os valores padrão no término de cada requisição quando registrado no motor de `resettables` do Leakless:
 
 ```php
 use TheMattos\Leakless\Attributes\ResetOnRequest;
 
 class UserSessionContext
 {
-    // Restaura o valor padrão [] ao término da requisição
-    #[ResetOnRequest(default: [])]
-    public array $permissions = [];
-
-    // Restaura o valor padrão null
+    // Restaura o valor padrão null (propriedade estática: resetada registrando a string da classe)
     #[ResetOnRequest]
     public static ?string $activeToken = null;
 
     // Executa método de limpeza customizado no encerramento da requisição
     #[ResetOnRequest(resetter: 'cleanup')]
     public static array $inMemoryEvents = [];
+
+    // Restaura o valor padrão [] (propriedade de instância: resetada registrando a instância do objeto)
+    #[ResetOnRequest(default: [])]
+    public array $permissions = [];
 
     public static function cleanup(): void
     {
@@ -122,4 +122,26 @@ class UserSessionContext
 | `resetter` | `string\|null` | `null` | Nome de método customizado na classe a ser invocado no reset. |
 | `default` | `mixed` | `null` | Valor de fallback explícito a ser atribuído à propriedade no reset. |
 | **Alvos do Atributo** | `Property`, `Class`, `Method` | — | Pode ser colocado em propriedades estáticas ou de instância, classes ou métodos de limpeza. |
+
+---
+
+### Como o ResetOnRequest Funciona em Tempo de Execução
+
+::: tip Requisito de Registro
+O `#[ResetOnRequest]` **não executa varredura global de classes ou arquivos**. Ele serve como um conjunto de instruções pré-compiladas para os alvos explicitamente registrados no motor de `resettables`:
+- No Laravel: adicione os alvos ao array `'resettables'` em `config/leakless.php`.
+- No Symfony/PHP Vanilla: registre os alvos via `Config::$resettables` ou chamando `$leakless->registerResetTarget($alvo)`.
+:::
+
+#### Propriedades Estáticas vs. Propriedades de Instância
+
+| Tipo de Registro | Exemplo | O Que é Resetado |
+| :--- | :--- | :--- |
+| **String da Classe** | `UserSessionContext::class` | **Propriedades estáticas** anotadas com `#[ResetOnRequest]` e **métodos de limpeza estáticos** (ou convencionais estáticos `resetState` / `cleanup`). Propriedades de instância são ignoradas porque nenhuma instância foi informada. |
+| **Instância do Objeto** | `$userSessionContext` | **Propriedades de instância** anotadas com `#[ResetOnRequest]`, métodos de limpeza da instância e métodos convencionais `reset()` daquele objeto específico. |
+
+::: warning PHPStan vs. Execução em Produção
+A regra de análise estática `BanMutableStaticPropertiesRule` considera propriedades `static` com `#[ResetOnRequest]` como seguras. **Lembre-se sempre de adicionar a classe ao `'resettables'` na sua configuração**, caso contrário a propriedade não será resetada em tempo de execução e continuará vazando dados entre requisições!
+:::
+
 

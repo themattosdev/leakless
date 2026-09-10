@@ -89,24 +89,24 @@ class DatabaseSchemaRegistry
 
 ## 4. The `#[ResetOnRequest]` Attribute
 
-Use this attribute on classes, properties, or methods to declare state that must be automatically reset to initial default values at the end of every request cycle:
+Use this attribute on classes, properties, or methods to declare state that must be automatically reset to initial default values at the end of every request cycle when registered in Leakless's resettables engine:
 
 ```php
 use TheMattos\Leakless\Attributes\ResetOnRequest;
 
 class UserSessionContext
 {
-    // Restores default value [] on request completion
-    #[ResetOnRequest(default: [])]
-    public array $permissions = [];
-
-    // Restores default value null
+    // Restores default value null (static property: reset via class string registration)
     #[ResetOnRequest]
     public static ?string $activeToken = null;
 
     // Calls custom cleanup method on request completion
     #[ResetOnRequest(resetter: 'cleanup')]
     public static array $inMemoryEvents = [];
+
+    // Restores default value [] (instance property: reset via object instance registration)
+    #[ResetOnRequest(default: [])]
+    public array $permissions = [];
 
     public static function cleanup(): void
     {
@@ -122,4 +122,26 @@ class UserSessionContext
 | `resetter` | `string\|null` | `null` | Name of a custom method on the target to invoke on reset. |
 | `default` | `mixed` | `null` | Explicit fallback value to assign to the property on reset. |
 | **Attribute Targets** | `Property`, `Class`, `Method` | — | Can be placed directly on static/instance properties, classes, or cleanup methods. |
+
+---
+
+### How ResetOnRequest Works at Runtime
+
+::: tip Registration Requirement
+`#[ResetOnRequest]` **does not perform global file or class scanning**. It acts as a set of compiled reset rules for targets explicitly registered in the `resettables` engine:
+- In Laravel: add targets to `'resettables'` in `config/leakless.php`.
+- In Symfony/Vanilla: register targets via `Config::$resettables` or `$leakless->registerResetTarget($target)`.
+:::
+
+#### Static vs. Instance Properties
+
+| Registration Type | Example | What Gets Reset |
+| :--- | :--- | :--- |
+| **Class String** | `UserSessionContext::class` | **Static properties** annotated with `#[ResetOnRequest]` and **static cleanup methods** (or conventional static `resetState` / `cleanup` methods). Instance properties are ignored because no instance exists. |
+| **Object Instance** | `$userSessionContext` | **Instance properties** annotated with `#[ResetOnRequest]`, instance cleanup methods, and conventional `reset()` methods on that specific object. |
+
+::: warning PHPStan vs. Runtime Execution
+The static analysis rule `BanMutableStaticPropertiesRule` considers `static` properties annotated with `#[ResetOnRequest]` as safe. **Remember to always add the class to `'resettables'` in your configuration**, otherwise the property will remain mutated and leak across requests at runtime despite passing static analysis!
+:::
+
 

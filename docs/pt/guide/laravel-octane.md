@@ -98,14 +98,14 @@ Em aplicações persistentes com Laravel Octane, gerenciar estado mutável em si
 - **Lista Flush do Octane**: Liste classes em `config/octane.php` sob a chave `'flush'` para remover instâncias do container no término da requisição.
 
 ### 2. Motor de Resettables do Leakless
-- **`resettables` em `config/leakless.php`**: Registre classes, instâncias ou callbacks que precisam de limpeza.
-- **Atributo Declarativo `#[ResetOnRequest]`**: Anote propriedades ou classes para restaurar automaticamente os valores iniciais.
+- **`resettables` em `config/leakless.php`**: Registre strings de classes (para resetar propriedades/métodos `static`), instâncias de objetos ou callbacks que precisam de limpeza.
+- **Atributo Declarativo `#[ResetOnRequest]`**: Anote propriedades ou classes nesses alvos registrados para especificar valores padrão (`default: ...`) ou métodos customizados de reset (`resetter: '...'`).
 - **Zero Reflection no Hot Path**: Compila closures de reset no warmup do worker, garantindo execução nativa pura durante o ciclo de requisições.
 
 ### Qual Abordagem Utilizar?
 O Leakless foi desenvolvido para ser flexível e não invasivo. **Fica a seu próprio critério qual abordagem escolher:**
-- Você pode utilizar os mecanismos nativos do Octane (`scoped()` e `'flush'`).
-- Você pode utilizar o `resettables` e o `#[ResetOnRequest]` do Leakless para controle granular de propriedades ou callbacks em código legado.
+- Você pode utilizar os mecanismos nativos do Octane (`scoped()` e `'flush'`) para recriar instâncias inteiras do serviço.
+- Você pode utilizar o `resettables` do Leakless (com ou sem `#[ResetOnRequest]`) para controle granular de propriedades em singletons existentes ou callbacks em código legado.
 - Ou pode combinar ambas as soluções harmonicamente na mesma aplicação.
 
 ---

@@ -22,7 +22,7 @@ features:
   - title: Automated Transaction Guard
     details: Inspects active PDO connections at request termination, detects forgotten transactions, logs diagnostic warnings, and executes safe rollbacks.
   - title: Defensive State Rollback & Resettables
-    details: Automatically restores timezones, unclosed output buffers, and resets registered services or #[ResetOnRequest] properties with zero reflection in hot path.
+    details: Automatically restores timezones, unclosed output buffers, and resets registered services and #[ResetOnRequest] properties with zero reflection in hot path.
   - title: Graceful Worker Recycling
     details: Intercepts requests when configured RSS memory ceilings or request limits are reached, ensuring active requests complete cleanly.
   - title: Static Worker Linter CLI

@@ -84,18 +84,41 @@ endRequest() ──────────────────────�
    }
    ```
 
-4. **Atributo Declarativo `#[ResetOnRequest]`**:
+4. **Atributo Declarativo `#[ResetOnRequest]` em Alvos Registrados**:
    ```php
    use TheMattos\Leakless\Attributes\ResetOnRequest;
 
    class UserContext
    {
-       #[ResetOnRequest(default: [])]
-       public array $permissions = ['admin'];
-
+       // Propriedades estáticas são resetadas ao registrar UserContext::class em resettables:
        #[ResetOnRequest]
        public static ?string $token = null;
+
+       #[ResetOnRequest(default: 'guest')]
+       public static string $role = 'guest';
+
+       // Propriedades de instância são resetadas ao registrar a instância do objeto em resettables:
+       #[ResetOnRequest(default: [])]
+       public array $permissions = [];
    }
    ```
 
+   Registre o alvo na sua configuração:
+   ```php
+   $config = new Config(
+       resettables: [
+           // Reseta propriedades estáticas #[ResetOnRequest]:
+           UserContext::class,
+
+           // Para resetar propriedades de instância, informe a instância resolvida:
+           // $userContextInstance,
+       ],
+   );
+   ```
+
+::: tip Importante: Sem Varredura Automática de Projeto
+O atributo `#[ResetOnRequest]` define o plano de compilação de reset de propriedades e métodos, mas **exige que a classe ou instância seja explicitamente registrada** no array `resettables` ou via `$leakless->registerResetTarget()`. O Leakless não faz varreduras globais de reflexão ou AST para manter o boot com overhead zero.
+:::
+
 Ao término de cada requisição (`endRequest()`), o Leakless executa todas as closures compiladas sem nenhum overhead de reflexão em tempo de execução.
+

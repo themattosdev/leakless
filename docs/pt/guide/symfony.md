@@ -91,5 +91,5 @@ Serviços do Symfony que implementam `Symfony\Contracts\Service\ResetInterface` 
 
 O Leakless complementa esse ecossistema:
 1. Suportando qualquer classe ou instância com método `reset()` em `Config::$resettables`.
-2. Fornecendo o atributo declarativo `#[ResetOnRequest]` para reset granular de propriedades.
+2. Fornecendo o atributo declarativo `#[ResetOnRequest]` para reset granular de propriedades em alvos registrados no `Config::$resettables`.
 3. Capturando vazamentos que ocorrem **fora** do container do Symfony (ex: conexões PDO diretas, alocações de extensões C, variáveis `$GLOBALS` e propriedades `static`).

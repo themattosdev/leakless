@@ -36,8 +36,8 @@ class MetricsCollector
 }
 ```
 **Como Resolver com o Leakless:**
-- Reset via `Config::$resettables`: `resettables: [fn () => MetricsCollector::$events = []]`
-- Ou utilizando a anotação `#[ResetOnRequest]`:
+- Reset via closure em `Config::$resettables`: `'resettables' => [fn () => MetricsCollector::$events = []]`
+- Ou utilizando o atributo `#[ResetOnRequest]` e registrando a classe em `'resettables'`:
   ```php
   use TheMattos\Leakless\Attributes\ResetOnRequest;
 
@@ -46,6 +46,12 @@ class MetricsCollector
       #[ResetOnRequest(default: [])]
       public static array $events = [];
   }
+  ```
+  ```php
+  // Em config/leakless.php:
+  'resettables' => [
+      MetricsCollector::class,
+  ],
   ```
 
 ---

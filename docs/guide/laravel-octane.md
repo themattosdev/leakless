@@ -98,14 +98,14 @@ In persistent Laravel Octane applications, handling mutable state in singletons 
 - **Octane Flush List**: Add service class names to `config/octane.php` under the `'flush'` key to forget instances on request termination.
 
 ### 2. Leakless Resettables Engine
-- **`resettables` in `config/leakless.php`**: Register class strings, objects, or callbacks that need cleanups.
-- **Declarative `#[ResetOnRequest]` Attribute**: Annotate specific properties or classes to automatically revert to default values.
+- **`resettables` in `config/leakless.php`**: Register class strings (to reset `static` properties/methods), object instances, or callbacks that need cleanups.
+- **Declarative `#[ResetOnRequest]` Attribute**: Annotate properties or classes within those registered targets to automatically specify fallback values (`default: ...`) or custom cleanup methods (`resetter: '...'`).
 - **Zero-Reflection in Hot Path**: Compiles reset closures at worker startup, ensuring pure native execution during request cycles.
 
 ### Which One Should You Use?
 Leakless is designed to be fully modular and flexible. **It is at your own discretion which approach to use:**
-- You can use Laravel Octane's native `scoped()` and `'flush'` mechanisms.
-- You can use Leakless's `resettables` and `#[ResetOnRequest]` for fine-grained property resets or legacy callbacks.
+- You can use Laravel Octane's native `scoped()` and `'flush'` mechanisms to recreate entire service instances.
+- You can use Leakless's `resettables` (with or without `#[ResetOnRequest]`) for fine-grained property resets on existing singletons or legacy callbacks.
 - Or you can combine both seamlessly in the same application.
 
 ---

@@ -67,3 +67,8 @@ Se alguma regra de worker persistente for violada, o PHPStan reportará o erro n
 | `BanEphemeralInjectionInSingletonsRule` | `leakless.ephemeralSingletonInjection` | Impede injeção de dependências de `Request` / `Session` no construtor de singletons. |
 | `BanSuperglobalsAndTerminatorsRule` | `leakless.superglobal`<br>`leakless.processTerminator`<br>`leakless.sessionStart` | Bloqueia superglobais `$_GET`, `$_POST`, `$_SESSION`, `exit()`, `die()` e `session_start()`. |
 | `BanIncompatibleWorkerFunctionsRule` | `leakless.incompatibleFunction`<br>`leakless.globBraceIncompatible`<br>`leakless.imapNotThreadSafe` | Detecta `get_browser()`, `GLOB_BRACE` no Alpine Linux, `ext-imap` e cabeçalhos procedurais (`setcookie`, `header`). |
+
+::: tip Análise Estática vs. Registro em Runtime
+Marcar uma propriedade estática com `#[ResetOnRequest]` avisa o PHPStan de que a limpeza do estado foi planejada. **No entanto, você deve registrar a classe no `'resettables'`** (em `config/leakless.php` ou via `$leakless->registerResetTarget()`) para que o Leakless de fato a resete a cada requisição em tempo de execução.
+:::
+
