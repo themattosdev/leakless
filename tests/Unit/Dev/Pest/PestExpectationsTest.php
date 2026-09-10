@@ -91,3 +91,27 @@ test('expect toResetContainerState fails when instance state is mutated', functi
 
     expect($failed)->toBeTrue();
 });
+
+test('expect toBeLeakless fails when value is neither object nor class-string', function () {
+    $failed = false;
+    try {
+        expect(12345)->toBeLeakless();
+    } catch (Throwable $e) {
+        $failed = true;
+        expect($e->getMessage())->toContain('Expected value must be a valid class-string or an object');
+    }
+
+    expect($failed)->toBeTrue();
+});
+
+test('expect toRunCleanly fails when value is not callable', function () {
+    $failed = false;
+    try {
+        expect('not_a_valid_callable_function_xyz')->toRunCleanly();
+    } catch (Throwable $e) {
+        $failed = true;
+        expect($e->getMessage())->toContain('Expected value must be a callable closure');
+    }
+
+    expect($failed)->toBeTrue();
+});
