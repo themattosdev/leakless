@@ -52,7 +52,9 @@ test('cli queue daemon example from documentation audits jobs, rolls back transa
         ],
     );
 
-    $leakless = new Leakless($config);
+    $leakless = new Leakless($config, recycler: function () use (&$shouldRecycle): void {
+        $shouldRecycle = true;
+    });
     $leakless->registerConnection($pdo);
 
     $messages = [

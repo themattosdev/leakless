@@ -34,7 +34,9 @@ test('swoole server worker lifecycle example from documentation intercepts reque
     );
 
     // 1. WorkerStart event emulation
-    $leakless = new Leakless($config);
+    $leakless = new Leakless($config, recycler: function () use (&$reloaded): void {
+        $reloaded = true;
+    });
     $leakless->registerConnection($pdo);
     $leakless->captureBaselineMetrics();
 

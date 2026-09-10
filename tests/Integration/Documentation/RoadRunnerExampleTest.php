@@ -39,7 +39,9 @@ test('roadrunner worker loop example from documentation executes and cleans stat
         ],
     );
 
-    $leakless = new Leakless($config);
+    $leakless = new Leakless($config, recycler: function () use (&$stopped): void {
+        $stopped = true;
+    });
 
     // Simulated RoadRunner requests queue
     $simulatedRequests = ['req_1', 'req_2', 'req_3'];

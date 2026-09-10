@@ -48,5 +48,5 @@ jobs:
         run: vendor/bin/phpstan analyse --memory-limit=512M
 
       - name: Test Suite (Pest)
-        run: vendor/bin/pest --coverage --min=93
+        run: vendor/bin/pest --coverage --min=95
 

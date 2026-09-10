@@ -121,4 +121,21 @@ final class InteractsWithLeaklessTest extends TestCase
             // pure logic without mutating $cleanService
         });
     }
+
+    public function test_it_resolves_report_from_laravel_app_container(): void
+    {
+        if (! function_exists('app')) {
+            $this->markTestSkipped('Laravel app helper is not available.');
+        }
+
+        $leakless = new \TheMattos\Leakless\Leakless;
+        $leakless->startRequest();
+        $report = $leakless->endRequest();
+
+        app()->instance(\TheMattos\Leakless\Leakless::class, $leakless);
+
+        $this->assertCleanWorkerState(null);
+        $this->assertNoDanglingTransactions(null);
+        $this->assertNoMemoryDrift(null, maxAllowedMb: 100.0);
+    }
 }

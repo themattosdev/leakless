@@ -64,6 +64,7 @@ test('it requires consecutive violations threshold (hysteresis) before triggerin
         recycleCooldownSeconds: 0,
         driftJitterPercentage: 0,
         triggerGcOnBreach: false,
+        ztsAware: false,
     );
 
     $fakeStatm = tempnam(sys_get_temp_dir(), 'leakless_drift_statm_');
@@ -137,6 +138,7 @@ test('it respects recycling cooldown window and prevents restart storms', functi
         driftJitterPercentage: 0,
         triggerGcOnBreach: false,
         logViolations: true,
+        ztsAware: false,
         logger: function (string $msg) use (&$logged): void {
             $logged[] = $msg;
         },

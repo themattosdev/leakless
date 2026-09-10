@@ -338,4 +338,26 @@ final class OctaneIntegrationTest extends TestCase
         $this->assertSame(64, $config->maxDriftMb);
         $this->assertSame(256, $config->maxRssMb);
     }
+
+    public function test_octane_terminated_listener_handles_non_object_event_and_disconnected_db(): void
+    {
+        /** @var Application $app */
+        $app = $this->app;
+
+        /** @var Leakless $leakless */
+        $leakless = $app->make(Leakless::class);
+
+        $listener = new \TheMattos\Leakless\Integrations\Laravel\Listeners\OctaneTerminatedListener(
+            $leakless,
+            $app
+        );
+
+        // Non-object event
+        $listener->handle(null);
+        $listener->handle('string-event');
+
+        $report = $leakless->getLastReport();
+        $this->assertNotNull($report);
+        $this->assertSame([], $report->metadata);
+    }
 }

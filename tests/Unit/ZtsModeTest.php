@@ -127,7 +127,7 @@ test('it attributes drift to the leaking thread when Zend memory grows in ZTS mo
         triggerGcOnBreach: false,
     );
 
-    $guardian = new Leakless($config, statmParser: $parser);
+    $guardian = new Leakless($config, statmParser: $parser, recycler: function (): void {});
     $guardian->setBaselineMetrics($baseline);
 
     // Request 1: First violation
@@ -143,7 +143,8 @@ test('it attributes drift to the leaking thread when Zend memory grows in ZTS mo
     $guardian->startRequest();
     $report2 = $guardian->endRequest();
 
-    expect($report2->consecutiveViolationsCount)->toBe(2)
+    expect($report2->consecutiveViolationsCount)->toBe(0)
+        ->and($guardian->getConsecutiveViolations())->toBe(0)
         ->and($report2->shouldRecycle)->toBeTrue()
         ->and($report2->recycleReason)->toContain('Thread memory drift limit exceeded');
 });
@@ -192,7 +193,7 @@ test('it recycles worker on persistent unattributed process drift when maxRssMb 
         triggerGcOnBreach: false,
     );
 
-    $guardian = new Leakless($config, statmParser: $parser);
+    $guardian = new Leakless($config, statmParser: $parser, recycler: function (): void {});
     $guardian->setBaselineMetrics($baseline);
 
     // Request 1: First unattributed breach
@@ -239,7 +240,7 @@ test('it still enforces emergency maxRssMb hard ceiling immediately in ZTS mode'
         ztsAware: true,
     );
 
-    $guardian = new Leakless($config, statmParser: $parser);
+    $guardian = new Leakless($config, statmParser: $parser, recycler: function (): void {});
 
     $guardian->startRequest();
     $report = $guardian->endRequest();
