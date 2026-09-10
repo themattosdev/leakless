@@ -2,6 +2,9 @@
 
 The Leakless CLI provides a standalone command-line tool to analyze your codebase against all persistent worker rules without requiring manual PHPStan configuration.
 
+> [!TIP]
+> The `leakless analyze` command uses a native in-memory Pure AST engine, executing in milliseconds with very low memory footprint (<20MB). If you prefer running these validations directly inside your existing `phpstan analyse` pipeline, see the [PHPStan Extension Guide](./phpstan.md).
+
 ---
 
 ## Usage

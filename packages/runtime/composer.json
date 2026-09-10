@@ -21,9 +21,10 @@
         }
     ],
     "require": {
-        "php": "^8.2",
-        "ext-posix": "*",
-        "ext-pcntl": "*"
+        "php": "^8.2"
+    },
+    "suggest": {
+        "ext-posix": "Used to dynamically detect custom OS kernel memory page sizes (defaults to 4096 bytes)"
     },
     "autoload": {
         "psr-4": {

@@ -41,7 +41,10 @@ final class LeaklessServiceProvider extends ServiceProvider
              *     trigger_gc?: bool,
              *     drift_jitter?: int,
              *     log_violations?: bool,
-             *     resettables?: array<int, class-string<object>|object|callable>
+             *     resettables?: array<int, class-string<object>|object|callable>,
+             *     zts_aware?: bool|null,
+             *     thread_tolerance_mb?: float,
+             *     unattributed_violations_threshold?: int
              * } $cfg */
             $cfg = (array) $configRepository->get('leakless', []);
 
@@ -59,6 +62,9 @@ final class LeaklessServiceProvider extends ServiceProvider
                         'dangling_transactions' => $report->danglingTransactionsCount,
                         'should_recycle' => $report->shouldRecycle,
                         'recycle_reason' => $report->recycleReason,
+                        'is_zts' => $report->isZts,
+                        'drift_attributed_to_thread' => $report->driftAttributedToThread,
+                        'unattributed_process_drift' => $report->unattributedProcessDrift,
                     ]);
                 } else {
                     error_log($message);
@@ -77,6 +83,10 @@ final class LeaklessServiceProvider extends ServiceProvider
                 ? (int) $cfg['max_requests']
                 : null;
 
+            $ztsAware = array_key_exists('zts_aware', $cfg)
+                ? ($cfg['zts_aware'] !== null ? (bool) $cfg['zts_aware'] : null)
+                : null;
+
             return new Config(
                 maxDriftMb: $maxDrift,
                 maxRssMb: $maxRss,
@@ -91,6 +101,9 @@ final class LeaklessServiceProvider extends ServiceProvider
                 logViolations: (bool) ($cfg['log_violations'] ?? true),
                 logger: $logger,
                 resettables: (array) ($cfg['resettables'] ?? []),
+                ztsAware: $ztsAware,
+                threadToleranceMb: (float) ($cfg['thread_tolerance_mb'] ?? 2.0),
+                unattributedViolationsThreshold: (int) ($cfg['unattributed_violations_threshold'] ?? 10),
             );
         });
 

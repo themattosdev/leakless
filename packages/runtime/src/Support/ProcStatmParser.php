@@ -6,7 +6,7 @@ namespace TheMattos\Leakless\Support;
 
 use TheMattos\Leakless\DTOs\ProcessMetrics;
 
-final class ProcStatmParser
+class ProcStatmParser
 {
     private const DEFAULT_PAGE_SIZE = 4096;
 

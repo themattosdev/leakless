@@ -54,6 +54,12 @@ return [
     'auto_recycle' => env('LEAKLESS_AUTO_RECYCLE', true),
 
     'log_violations' => env('LEAKLESS_LOG_VIOLATIONS', true),
+ 
+    'zts_aware' => env('LEAKLESS_ZTS_AWARE') !== null ? filter_var(env('LEAKLESS_ZTS_AWARE'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null,
+
+    'thread_tolerance_mb' => (float) env('LEAKLESS_THREAD_TOLERANCE_MB', 2.0),
+
+    'unattributed_violations_threshold' => (int) env('LEAKLESS_UNATTRIBUTED_THRESHOLD', 10),
 
     'resettables' => [
         // App\Services\CartSession::class,
@@ -77,6 +83,9 @@ return [
 | `LEAKLESS_CHECK_FILE_DESCRIPTORS` | `bool` | `false` | Inspeciona `/proc/self/fd` para detectar arquivos e sockets esquecidos abertos. |
 | `LEAKLESS_AUTO_RECYCLE` | `bool` | `true` | Sinaliza parada graciosa do worker ao Octane em caso de violação confirmada. |
 | `LEAKLESS_LOG_VIOLATIONS` | `bool` | `true` | Registra logs detalhados quando anomalias ou vazamentos são interceptados. |
+| `LEAKLESS_ZTS_AWARE` | `bool\|null` | `null` | Ativa atribuição thread-safe no modo ZTS (`null` para auto-detectar). |
+| `LEAKLESS_THREAD_TOLERANCE_MB` | `float` | `2.0` | Crescimento mínimo do ZMM (MB) para atribuir culpa à thread. |
+| `LEAKLESS_UNATTRIBUTED_THRESHOLD` | `int` | `10` | Checagens consecutivas antes de reciclar por vazamentos C não atribuídos. |
 
 ---
 

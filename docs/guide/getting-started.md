@@ -26,7 +26,7 @@ composer require --dev themattosdev/leakless-dev
 ## System Requirements
 
 - **PHP Version**: `^8.2` or higher
-- **Extensions**: `ext-posix` and `ext-pcntl` (standard in Linux/Docker FrankenPHP images)
+- **Extensions**: None required (`ext-posix` optional for dynamic memory page size resolution)
 - **Supported Runtimes**:
   - FrankenPHP Worker Mode (`frankenphp_handle_request`)
   - Laravel Octane (via FrankenPHP driver; RoadRunner & Swoole drivers planned in roadmap)

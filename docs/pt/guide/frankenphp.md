@@ -82,3 +82,19 @@ while ($request = $server->accept()) {
     }
 }
 ```
+
+---
+
+## Modo Multithread ZTS (Zend Thread Safety)
+
+Quando o FrankenPHP executa em modo multithread com múltiplos workers em threads Go/C:
+
+- **Processo do Sistema Operacional Compartilhado:** Todas as threads do worker compartilham o mesmo PID e a mesma medição de Resident Set Size física (`/proc/self/statm` RSS).
+- **Zend Memory Manager Isolado (TSRM):** Cada thread possui seu próprio heap Zend isolado (`memory_get_usage()`).
+
+### Proteção Contra "Noisy Neighbor" & Atribuição de Drift
+Por padrão, o Leakless detecta automaticamente o ambiente (`defined('PHP_ZTS') && PHP_ZTS === 1`):
+1. **Drift Atribuído à Thread:** Quando o RSS do processo excede `maxDriftMb`, o Leakless inspeciona o Zend Memory Manager da thread atual. Se ela reteve memória acima de `threadToleranceMb`, incrementa as violações consecutivas da thread.
+2. **Proteção Contra Falsos Positivos:** Se uma thread vizinha causou o pico no RSS do processo, mas a thread atual manteve o ZMM estável, a thread inocente **não** é punida.
+3. **Drift Não-Atribuído (Vazamentos Nativos em C):** Caso `maxRssMb` seja `null` e o RSS do processo continue subindo sem aumento correspondente no ZMM (indicando vazamento em bibliotecas C nativas como `GD` ou `libxml`), o Leakless aciona a reciclagem após atingir o limite `unattributedViolationsThreshold`.
+

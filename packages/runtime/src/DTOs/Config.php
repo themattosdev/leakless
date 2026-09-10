@@ -24,6 +24,9 @@ final readonly class Config
      * @param  (Closure(string, Report): void)|null  $logger  Optional custom logger closure for violation messages.
      * @param  (Closure(Report): void)|null  $onReport  Optional telemetry closure executed after each audited request.
      * @param  array<int, class-string<object>|object|callable>  $resettables  Optional list of class strings, objects, or callbacks to reset at the end of each request.
+     * @param  bool|null  $ztsAware  Whether to enable ZTS thread-safe memory attribution (null for auto-detection).
+     * @param  float  $threadToleranceMb  Minimum Zend memory delta in MB for a thread to be considered responsible for process drift.
+     * @param  int  $unattributedViolationsThreshold  Consecutive breaches of process RSS without Zend MM attribution before recycling.
      */
     public function __construct(
         public ?int $maxDriftMb = 64,
@@ -40,6 +43,9 @@ final readonly class Config
         public ?Closure $logger = null,
         public ?Closure $onReport = null,
         public array $resettables = [],
+        public ?bool $ztsAware = null,
+        public float $threadToleranceMb = 2.0,
+        public int $unattributedViolationsThreshold = 10,
     ) {
         $this->validateLimits();
         $this->validateTuning();
@@ -72,6 +78,14 @@ final readonly class Config
 
         if ($this->driftJitterPercentage < 0 || $this->driftJitterPercentage > 100) {
             throw new InvalidArgumentException("driftJitterPercentage must be between 0 and 100, received [{$this->driftJitterPercentage}].");
+        }
+
+        if ($this->threadToleranceMb < 0.0) {
+            throw new InvalidArgumentException("threadToleranceMb cannot be negative, received [{$this->threadToleranceMb}].");
+        }
+
+        if ($this->unattributedViolationsThreshold <= 0) {
+            throw new InvalidArgumentException("unattributedViolationsThreshold must be greater than 0, received [{$this->unattributedViolationsThreshold}].");
         }
     }
 }

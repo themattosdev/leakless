@@ -140,6 +140,41 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | ZTS (Zend Thread Safety) Multithread Mode (FrankenPHP)
+    |--------------------------------------------------------------------------
+    |
+    | When set to null, Leakless automatically detects if PHP is running under ZTS
+    | (defined('PHP_ZTS') && PHP_ZTS === 1). When enabled, memory drift is
+    | cross-checked with the thread's Zend Memory Manager to prevent noisy neighbor
+    | false-positives while still catching native C extension leaks.
+    |
+    */
+    'zts_aware' => env('LEAKLESS_ZTS_AWARE') !== null ? filter_var(env('LEAKLESS_ZTS_AWARE'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | ZTS Thread Zend Memory Tolerance (MB)
+    |--------------------------------------------------------------------------
+    |
+    | Minimum Zend Memory Manager delta (in MB) during a request for the thread to
+    | be deemed responsible for the process RSS memory drift in ZTS mode.
+    |
+    */
+    'thread_tolerance_mb' => (float) env('LEAKLESS_THREAD_TOLERANCE_MB', 2.0),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unattributed Process Drift Threshold (C Extensions / OS Fragmentation)
+    |--------------------------------------------------------------------------
+    |
+    | Number of consecutive request checks with process RSS drift where no thread's
+    | Zend memory grew, indicating a native C-level leak (e.g. malloc in GD/libxml).
+    |
+    */
+    'unattributed_violations_threshold' => (int) env('LEAKLESS_UNATTRIBUTED_THRESHOLD', 10),
+
+    /*
+    |--------------------------------------------------------------------------
     | Resettables Targets & Callbacks
     |--------------------------------------------------------------------------
     |

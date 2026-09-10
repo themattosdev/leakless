@@ -2,6 +2,9 @@
 
 O CLI do Leakless fornece uma ferramenta de linha de comando independente para analisar sua base de código contra todas as regras de workers persistentes sem exigir configurações manuais no PHPStan.
 
+> [!TIP]
+> O comando `leakless analyze` utiliza um motor nativo de Pure AST em memória, executando em milissegundos com consumo mínimo de memória (<20MB). Caso prefira rodar essas validações diretamente no seu `phpstan analyse` existente, consulte o [Guia da Extensão do PHPStan](./phpstan.md).
+
 ---
 
 ## Uso
