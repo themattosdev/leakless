@@ -61,5 +61,5 @@ O **Leakless** fornece um guardião autônomo de sobrecarga zero projetado espec
 | **Transaction Guard** | Reflexão e auditoria de conexões PDO | Detecta e executa rollback automático em transações órfãs |
 | **State Rollback** | Bloco defensivo no ciclo de vida `finally` | Restaura fuso horário, buffers de saída e níveis de erro |
 | **Reciclagem Graciosa** | Interceptador de limites de requisição/RAM | Dispara reinício do worker sem derrubar requisições ativas |
-| **Linter Estático CLI** | Inspeção de AST via PHPStan | Detecta anti-patterns de workers no CI/CD antes do deploy |
+| **Linter Estático CLI** | Análise estática nativa via AST | Detecta anti-patterns de workers no CI/CD antes do deploy |
 | **Asserções no Pest** | `toBeLeakless()` e `toRunCleanly()` | Testes automatizados unitários e de integração |

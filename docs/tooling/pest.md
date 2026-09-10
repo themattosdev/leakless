@@ -10,7 +10,7 @@ When using Pest, Leakless automatically registers custom expectations without an
 
 ### `expect($target)->toBeLeakless()`
 Performs a deep reflection audit on a class name (`string`) or object instance (`object`):
-- Verifies that the class contains **zero mutable static properties** (unless annotated with `#[AllowPersistentState]`).
+- Verifies that the class contains **zero mutable static properties** (unless annotated with `#[AllowPersistentState]` or `#[ResetOnRequest]`).
 - Inspects constructor parameters to ensure no ephemeral request-scoped dependencies (`Illuminate\Http\Request`, `Session`) are captured in long-lived services.
 
 ```php
@@ -36,6 +36,8 @@ test('batch processing runs cleanly', function () {
         $service->generate();
     })->toRunCleanly(maxDriftMb: 0.25); // Asserts RAM growth <= 0.25MB (256KB)
 });
+```
+
 ### `expect($target)->toResetContainerState(callable $callback, int $maxDepth = 4)`
 *Alias: `expect($target)->toHaveStatelessInstances(callable $callback, int $maxDepth = 4)`*
 
@@ -122,10 +124,10 @@ LeaklessAssert::assertRunsCleanly(fn () => doSomething(), maxDriftMb: 0.25);
 
 | Method | Description |
 | :--- | :--- |
-| `assertIsLeakless($target)` | Asserts that a class/object contains no mutable static properties or illegal ephemeral injections. |
-| `assertRunsCleanly($callable, $config, $maxDriftMb)` | Executes a callback under Leakless observation and asserts clean state. |
-| `assertResetsContainerState($target, $callback, $msg, $maxDepth)` | Snapshots object/container singleton properties to verify zero state retention. |
-| `assertStatelessInstances($target, $callback, $msg, $maxDepth)` | Alias for `assertResetsContainerState`. |
-| `assertNoDanglingTransactions($reportOrResponse)` | Asserts that no uncommitted PDO database transactions remained open. |
-| `assertCleanWorkerState($reportOrResponse)` | Asserts that the worker state finished 100% clean. |
-| `assertNoMemoryDrift($reportOrResponse, $maxMb)` | Asserts that kernel physical RSS memory drift remained within the allowed limit. |
+| `assertIsLeakless($target, string $message = '')` | Asserts that a class/object contains no mutable static properties or illegal ephemeral injections. |
+| `assertRunsCleanly($callable, ?Config $config = null, ?float $maxDriftMb = null, string $message = '')` | Executes a callback under Leakless observation and asserts clean state. |
+| `assertResetsContainerState($target, $callback, string $message = '', int $maxDepth = 4)` | Snapshots object/container singleton properties to verify zero state retention. |
+| `assertStatelessInstances($target, $callback, string $message = '', int $maxDepth = 4)` | Alias for `assertResetsContainerState`. |
+| `assertNoDanglingTransactions($reportOrResponse, string $message = '')` | Asserts that no uncommitted PDO database transactions remained open. |
+| `assertCleanWorkerState($reportOrResponse, string $message = '')` | Asserts that the worker state finished 100% clean. |
+| `assertNoMemoryDrift($reportOrResponse, float $maxAllowedMb = 0.25, string $message = '')` | Asserts that kernel physical RSS memory drift remained within the allowed limit. |
