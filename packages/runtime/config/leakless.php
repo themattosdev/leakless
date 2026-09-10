@@ -181,6 +181,13 @@ return [
     | List of class strings, object instances, or callbacks to automatically
     | reset at the end of each request in persistent workers.
     |
+    | Targets can use the #[ResetOnRequest] attribute or conventional cleanup
+    | methods ('reset', 'resetState', 'cleanup').
+    |
+    | Note:
+    | - Class strings (e.g. MyService::class) reset static properties & methods.
+    | - Object instances reset instance properties & methods.
+    |
     */
     'resettables' => [
         // App\Services\CartSession::class,

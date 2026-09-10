@@ -91,5 +91,5 @@ Symfony services implementing `Symfony\Contracts\Service\ResetInterface` are res
 
 Leakless complements this by:
 1. Supporting any class or instance with a `reset()` method in `Config::$resettables`.
-2. Providing the `#[ResetOnRequest]` attribute for fine-grained property-level resets.
+2. Providing the `#[ResetOnRequest]` attribute for fine-grained property-level resets on registered targets in `Config::$resettables`.
 3. Catching leaks that occur **outside** Symfony's container (e.g., direct PDO connections, C-extension memory growth, global `$GLOBALS` and static properties).

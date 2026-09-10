@@ -10,7 +10,7 @@ Ao utilizar o Pest, o Leakless registra expectations customizadas automaticament
 
 ### `expect($target)->toBeLeakless()`
 Executa uma auditoria estrutural via Reflection em uma classe (`string`) ou objeto (`object`):
-- Garante que a classe e suas classes pai contenham **zero propriedades estáticas mutáveis** (a menos que anotadas com `#[AllowPersistentState]`).
+- Garante que a classe e suas classes pai contenham **zero propriedades estáticas mutáveis** (a menos que anotadas com `#[AllowPersistentState]` ou `#[ResetOnRequest]`).
 - Inspeciona os parâmetros do construtor para proibir a captura de dependências efêmeras de requisição (`Illuminate\Http\Request`, `Session`) em serviços singleton/longa vida.
 
 ```php
@@ -124,10 +124,10 @@ LeaklessAssert::assertRunsCleanly(fn () => doSomething(), maxDriftMb: 0.25);
 
 | Método | Descrição |
 | :--- | :--- |
-| `assertIsLeakless($target)` | Assere que uma classe/objeto não possui estado estático mutável ou injeções ilegais. |
-| `assertRunsCleanly($callable, $config, $maxDriftMb)` | Executa um callback sob o Leakless e assere estado 100% limpo. |
-| `assertResetsContainerState($target, $callback, $msg, $maxDepth)` | Captura snapshot de objetos/singletons do container para asserir ausência de mutações. |
-| `assertStatelessInstances($target, $callback, $msg, $maxDepth)` | Alias para `assertResetsContainerState`. |
-| `assertNoDanglingTransactions($reportOrResponse)` | Assere que nenhuma transação PDO permaneceu aberta. |
-| `assertCleanWorkerState($reportOrResponse)` | Assere que o estado do worker terminou 100% limpo. |
-| `assertNoMemoryDrift($reportOrResponse, $maxMb)` | Assere que o drift de memória física não ultrapassou o teto. |
+| `assertIsLeakless($target, string $message = '')` | Assere que uma classe/objeto não possui estado estático mutável ou injeções ilegais. |
+| `assertRunsCleanly($callable, ?Config $config = null, ?float $maxDriftMb = null, string $message = '')` | Executa um callback sob o Leakless e assere estado 100% limpo. |
+| `assertResetsContainerState($target, $callback, string $message = '', int $maxDepth = 4)` | Captura snapshot de objetos/singletons do container para asserir ausência de mutações. |
+| `assertStatelessInstances($target, $callback, string $message = '', int $maxDepth = 4)` | Alias para `assertResetsContainerState`. |
+| `assertNoDanglingTransactions($reportOrResponse, string $message = '')` | Assere que nenhuma transação PDO permaneceu aberta. |
+| `assertCleanWorkerState($reportOrResponse, string $message = '')` | Assere que o estado do worker terminou 100% limpo. |
+| `assertNoMemoryDrift($reportOrResponse, float $maxAllowedMb = 0.25, string $message = '')` | Assere que o drift de memória física não ultrapassou o teto. |

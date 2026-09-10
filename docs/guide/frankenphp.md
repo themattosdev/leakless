@@ -90,5 +90,5 @@ When FrankenPHP runs in multithreaded worker mode (using official ZTS PHP builds
 By default, Leakless auto-detects `defined('PHP_ZTS') && PHP_ZTS === 1`:
 1. **Attributed Thread Drift:** When process RSS exceeds `maxDriftMb`, Leakless checks the current thread's Zend Memory Manager. If this thread's Zend memory grew beyond `threadToleranceMb`, it increments consecutive violations.
 2. **Noisy Neighbor Protection:** If another thread caused the process RSS to spike but the current thread's Zend memory remained flat, the current thread is **not** penalized.
-3. **Unattributed Drift (Native C Leaks):** If `maxRssMb` is `null` and process RSS drifts persistently across consecutive requests without Zend MM growth (indicating a native leak in extensions like `GD` or `libxml`), Leakless recycles the process after `unattributedViolationsThreshold` checks.
+3. **Unattributed Drift (Native C Leaks):** When process RSS drifts persistently across consecutive requests without Zend MM growth (indicating a native leak in C extensions like `GD` or `libxml`, or allocator fragmentation), Leakless recycles the process after `unattributedViolationsThreshold` checks (even before an emergency `maxRssMb` hard ceiling is reached).
 

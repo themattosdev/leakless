@@ -29,9 +29,26 @@ vendor/bin/leakless analyze app/Services src/Infrastructure
 
 | Option | Flag | Default | Description |
 | :--- | :---: | :---: | :--- |
-| `--memory-limit` | `-m` | `512M` | Sets the maximum memory limit for the PHP process running the analyzer. |
-| `--configuration` | `-c` | `null` | Path to a custom `phpstan.neon` configuration file. |
+| `--memory-limit` | `-m` | `256M` | Sets the maximum memory limit for the PHP process running the analyzer. |
+| `--configuration` | `-c` | `null` | Kept for backwards compatibility. *(Note: The Pure AST engine is zero-config and does not parse `phpstan.neon`. If you need custom `ignoreErrors` or PHPStan configuration, use the [PHPStan Extension](./phpstan.md)).* |
 | `--json` | | `false` | Outputs raw machine-readable JSON for CI/CD integrations. |
+
+---
+
+## Validated Worker Safety Rules
+
+The Pure AST engine traverses all PHP files in the target directories and validates the following rules:
+
+| Rule Identifier | Hazard Checked | Remediation |
+| :--- | :--- | :--- |
+| `leakless.mutableStaticProperty` | Mutable `static` properties retaining state across worker cycles. | Mark as `readonly`, convert to instance property, or annotate with `#[AllowPersistentState]` / `#[ResetOnRequest]`. |
+| `leakless.ephemeralSingletonInjection` | Constructor injection of ephemeral request objects (`Request`, `Session`) into services. | Inject request into action methods, or inject a closure / Container resolver instead. |
+| `leakless.superglobal` | Direct access to `$_GET`, `$_POST`, `$_SESSION`, `$_REQUEST`, or `$_FILES`. | Use framework Request or Session abstraction. |
+| `leakless.processTerminator` | Direct `exit()` or `die()` calls that terminate the entire persistent worker process. | Return a Response object or throw an exception. |
+| `leakless.sessionStart` | Direct native `session_start()` calls corrupting persistent worker concurrency. | Use framework Session manager. |
+| `leakless.incompatibleFunction` | Incompatible worker functions (`get_browser`, `header`, `setcookie`, `session_*`, `flush`). | Use framework Response / Cookie / Session abstraction. |
+| `leakless.globBraceIncompatible` | `GLOB_BRACE` flag in `glob()`, unsupported on Alpine musl libc (returns false). | Use multiple `glob()` calls or Symfony Finder. |
+| `leakless.imapNotThreadSafe` | `imap_*` functions from `ext-imap` which are not thread-safe. | Use modern userland packages (e.g. `webklex/php-imap`). |
 
 ---
 
@@ -90,3 +107,4 @@ vendor/bin/leakless analyze --json
 
 - `0`: Analysis passed with **zero violations**.
 - `1`: Analysis detected one or more persistent worker violations.
+

@@ -80,20 +80,39 @@ In `config/leakless.php`, you can also register classes or callbacks to auto-res
 
 ### 3. Declarative State Reset (`#[ResetOnRequest]`)
 
-Annotate properties or classes to automatically restore initial or default values between requests:
+Annotate properties or classes to automatically restore initial or default values between requests when registered in `resettables`:
 
 ```php
 use TheMattos\Leakless\Attributes\ResetOnRequest;
 
 class UserContext
 {
-    #[ResetOnRequest(default: [])]
-    public array $permissions = [];
-
+    // Static properties are reset when registering UserContext::class in 'resettables'
     #[ResetOnRequest]
     public static ?string $token = null;
+
+    #[ResetOnRequest(default: 'guest')]
+    public static string $role = 'guest';
+
+    // Instance properties are reset when registering the object instance itself
+    #[ResetOnRequest(default: [])]
+    public array $permissions = [];
 }
 ```
+
+```php
+// In config/leakless.php:
+'resettables' => [
+    // Resets static #[ResetOnRequest] properties and static cleanup methods:
+    UserContext::class,
+
+    // To reset instance properties, register the resolved object instance or callback:
+    // fn () => app(UserContext::class)->permissions = [],
+],
+```
+
+> **Important:** `#[ResetOnRequest]` does not automatically scan all classes across your application. To be reset at runtime, the target class (for `static` state) or object instance (for instance state) must be registered in `'resettables'` or via `$leakless->registerResetTarget()`.
+
 
 ### 4. Automated Testing (Pest & PHPUnit)
 
@@ -114,7 +133,7 @@ test('service executes cleanly without leaking memory or state', function () {
 });
 ```
 
-### 4. Static Worker Linter CLI
+### 5. Static Worker Linter CLI
 
 ```bash
 vendor/bin/leakless analyze

@@ -22,7 +22,7 @@ features:
   - title: Transaction Guard Automatizado
     details: Inspeciona conexões PDO ativas ao término de cada requisição, detecta transações órfãs, gera logs de alerta e executa rollbacks imediatos.
   - title: Rollback de Estado & Resettables
-    details: Restaura fusos horários, esvazia buffers e executa reset automático de serviços e propriedades #[ResetOnRequest] com zero reflexão no hot path.
+    details: Restaura fusos horários, esvazia buffers e executa reset automático de serviços e propriedades registradas com #[ResetOnRequest] com zero reflexão no hot path.
   - title: Reciclagem Graciosa de Workers
     details: Intercepta o ciclo quando limites de memória RSS ou limites de requisições são atingidos, finalizando a requisição ativa com segurança.
   - title: Linter Estático CLI

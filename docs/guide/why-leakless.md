@@ -61,5 +61,5 @@ Persistent workers retain global process modifications:
 | **Transaction Guard** | PDO connection reflection & auditing | Detects and automatically rolls back uncommitted transactions |
 | **State Rollback** | Defensive `finally` lifecycle handler | Restores default timezone, flushes output buffers, and resets error levels |
 | **Worker Recycling** | Graceful request threshold interceptor | Triggers worker recycling without dropping active requests |
-| **Static Linter CLI** | AST-based PHPStan inspection | Detects worker anti-patterns in CI/CD before deployment |
+| **Static Linter CLI** | Standalone AST static analysis | Detects worker anti-patterns in CI/CD before deployment |
 | **Pest Assertions** | `toBeLeakless()` & `toRunCleanly()` | Automated unit and integration testing for persistent safety |
